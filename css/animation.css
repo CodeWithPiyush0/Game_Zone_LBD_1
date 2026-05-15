@@ -1,1 +1,90 @@
-/* Animation placeholder */
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
+    75% { transform: translateX(-10px); }
+    100% { transform: translateX(0); }
+}
+
+.shake {
+    animation: shake 0.3s ease-in-out;
+}
+
+.success-pop {
+    animation: successPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes successPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.ticket-burst-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+    overflow: hidden;
+}
+
+.anim-ticket-strip {
+    position: absolute;
+    width: 25%; /* Generous size for strips */
+    object-fit: contain;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+}
+
+.anim-ticket-single {
+    position: absolute;
+    width: 10%; /* Individual tickets */
+    object-fit: contain;
+    opacity: 0;
+}
+
+@keyframes stripBurst {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    15% {
+        opacity: 1;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot)) scale(var(--scale));
+        opacity: 0;
+    }
+}
+
+@keyframes ticketFall {
+    0% {
+        transform: translate(0, 0) rotate(var(--rot-start)) scale(var(--scale));
+        opacity: 0;
+    }
+    10% {
+        opacity: var(--start-opacity, 1);
+    }
+    85% {
+        /* Bouncing point */
+        transform: translate(var(--tx), 95vh) rotate(var(--rot-end)) scale(var(--scale));
+        opacity: var(--start-opacity, 1);
+        animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+    }
+    92% {
+        /* Bounce up */
+        transform: translate(calc(var(--tx) * 1.1), 90vh) rotate(calc(var(--rot-end) + 20deg)) scale(var(--scale));
+        opacity: 0.8;
+        animation-timing-function: ease-in;
+    }
+    100% {
+        transform: translate(calc(var(--tx) * 1.2), 110vh) rotate(calc(var(--rot-end) + 40deg)) scale(var(--scale));
+        opacity: 0;
+    }
+}
