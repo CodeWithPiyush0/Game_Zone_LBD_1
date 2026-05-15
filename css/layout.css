@@ -1,0 +1,61 @@
+/* Main Cabinet Layout */
+.app-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    background-color: var(--bg-color);
+}
+
+.cabinet-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-color);
+}
+
+.game-container {
+    position: absolute;
+    width: 100vw;
+    height: 56.25vw; /* 1080/1920 * 100 */
+    max-height: 100vh;
+    max-width: 177.78vh; /* 1920/1080 * 100 */
+    display: flex;
+    flex-direction: column;
+    container-type: size;
+}
+
+.background-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+.cabinet-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* UI Layers */
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; /* Let clicks pass through to interactive elements */
+}
+
+.ui-layer > * {
+    pointer-events: auto; /* Re-enable for child elements */
+}

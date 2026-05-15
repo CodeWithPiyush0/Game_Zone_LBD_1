@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcade Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/animation.css">
+  <link rel="stylesheet" href="css/dropzone.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/tray.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <div id="app" class="app-wrapper">
+    <div class="cabinet-wrapper">
+      <div class="game-container">
+        <div class="background-container">
+          <img src="assets/images/BG.png" alt="Arcade Cabinet Background" class="cabinet-bg" />
+        </div>
+        
+        <div class="ui-layer">
+          <!-- Header Area -->
+          <header class="game-header">
+            <div class="target-box">
+              <img src="assets/images/Target_box.svg" alt="Target Box" class="target-bg" />
+              <div class="target-content">
+                <span class="target-label">TARGET</span>
+                <span class="target-amount">₹25</span>
+              </div>
+            </div>
+            
+            <div class="question-box">
+              <img src="assets/images/Question_template.svg" alt="Question Box" class="question-bg" />
+              <div class="question-content">
+                <p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>
+              </div>
+            </div>
+          </header>
+
+          <!-- Drop Zone -->
+          <div class="dropzone-container">
+            <img src="assets/images/Default_dropZone.svg" alt="Drop Zone Background" class="dropzone-bg" id="dropzone-bg" />
+            <div class="dropzone-area" id="dropzone"></div>
+            
+            <!-- Check Button (hidden by default) -->
+            <button class="action-btn check-btn hidden" id="check-btn">
+              <img src="assets/images/Check btn.svg" alt="Check" />
+            </button>
+          </div>
+
+          <!-- Money Tray -->
+          <div class="money-tray">
+            <img src="assets/images/Money rack.svg" alt="Money Rack" class="tray-bg" />
+            
+            <div class="money-area">
+              <!-- Coins -->
+              <div class="coins-container" id="coins-container">
+                <div class="money-item coin" data-value="1">
+                  <img src="assets/images/Money/One_Rupee_Default.png" alt="₹1 Coin" draggable="true" />
+                </div>
+                <div class="money-item coin" data-value="2">
+                  <img src="assets/images/Money/Two_Rupee_Default.png" alt="₹2 Coin" draggable="true" />
+                </div>
+                <div class="money-item coin" data-value="5">
+                  <img src="assets/images/Money/Five_Rupee_Default.png" alt="₹5 Coin" draggable="true" />
+                </div>
+                <div class="money-item coin" data-value="10">
+                  <img src="assets/images/Money/Ten_Rupee_Default.png" alt="₹10 Coin" draggable="true" />
+                </div>
+                <div class="money-item coin" data-value="20">
+                  <img src="assets/images/Money/Twenty_Rupee_Default.png" alt="₹20 Coin" draggable="true" />
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div class="notes-container" id="notes-container">
+                <div class="money-item note" data-value="10">
+                  <img src="assets/images/Money/Ten_Rupee_Note_Default.png" alt="₹10 Note" draggable="true" />
+                </div>
+                <div class="money-item note" data-value="20">
+                  <img src="assets/images/Money/Twenty_Rupee_Note_Default.png" alt="₹20 Note" draggable="true" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

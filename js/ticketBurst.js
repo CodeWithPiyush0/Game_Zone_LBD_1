@@ -1,0 +1,1 @@
+// Ticket burst placeholder
