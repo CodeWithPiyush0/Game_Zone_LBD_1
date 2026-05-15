@@ -8,15 +8,33 @@ export function initDragDrop() {
     const moneyTray = document.querySelector('.money-tray');
     const checkBtn = document.getElementById('check-btn');
     const questionContent = document.querySelector('.question-content');
+    const confetti = document.getElementById('confetti');
+    
+    const sounds = {
+        drop: new Audio('assets/sounds/drop.mp3'),
+        note: new Audio('assets/sounds/note.mp3'),
+        click: new Audio('assets/sounds/click.mp3'),
+        error: new Audio('assets/sounds/error.mp3'),
+        success: new Audio('assets/sounds/success1.mp3') // Used success1.mp3 based on folder contents
+    };
+
+    function playSound(name) {
+        if (sounds[name]) {
+            sounds[name].currentTime = 0;
+            sounds[name].play().catch(e => console.log('Audio error:', e));
+        }
+    }
     
     const originalQuestionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
     
     let draggedItemValue = null;
     let draggedItemOrigin = null;
+    let draggedItemType = null;
     
     moneyItems.forEach(item => {
         item.addEventListener('dragstart', (e) => {
             draggedItemValue = item.getAttribute('data-value');
+            draggedItemType = item.classList.contains('note') ? 'note' : 'coin';
             draggedItemOrigin = null; // Came from tray
             
             const img = item.querySelector('img');
@@ -82,6 +100,13 @@ export function initDragDrop() {
             return;
         }
 
+        // Play the material drop sound
+        if (draggedItemType === 'note') {
+            playSound('note');
+        } else {
+            playSound('drop');
+        }
+
         if (draggedItemValue === '5') {
             // Success dropping 5 coin
             droppedCoinsCount++;
@@ -95,6 +120,7 @@ export function initDragDrop() {
             // Add drag events for returning to tray
             newCoin.addEventListener('dragstart', (ev) => {
                 draggedItemValue = '5';
+                draggedItemType = 'coin';
                 draggedItemOrigin = newCoin;
                 ev.dataTransfer.effectAllowed = 'move';
                 // Don't need glow logic for returning to tray
@@ -112,6 +138,7 @@ export function initDragDrop() {
             updateDropzoneLayout(droppedCoinsCount);
         } else {
             // Incorrect
+            playSound('error');
             dropzoneBg.src = 'assets/images/Incorrect_dropZone.svg';
             dropzoneBg.classList.add('is-glow'); // Incorrect_dropZone might also share the viewBox, safely apply it
             dropzoneContainer.classList.add('shake');
@@ -131,6 +158,7 @@ export function initDragDrop() {
     moneyTray.addEventListener('drop', (e) => {
         e.preventDefault();
         if (draggedItemOrigin) {
+            playSound('drop');
             draggedItemOrigin.remove();
             droppedCoinsCount--;
             updateDropzoneLayout(droppedCoinsCount);
@@ -153,16 +181,21 @@ export function initDragDrop() {
 
     // Check button logic
     checkBtn.addEventListener('click', () => {
+        playSound('click');
+        
         if (droppedCoinsCount < 5) {
             // Failure: Less coin
+            playSound('error');
             questionContent.innerHTML = '<p style="color: #FFD600;">Oops! You need <span style="color: #FFD600;">more</span> to make ₹25</p>';
             triggerErrorState();
         } else if (droppedCoinsCount > 5) {
             // Failure: More coin
+            playSound('error');
             questionContent.innerHTML = '<p style="color: #FFD600;">Oops! That is <span style="color: #FFD600;">more</span> than ₹25</p>';
             triggerErrorState();
         } else if (droppedCoinsCount === 5) {
             // Success!
+            playSound('success');
             questionContent.innerHTML = '<p>Yay! You have won the <span class="highlight">tickets!</span></p>';
             dropzoneBg.src = 'assets/images/Success_dropZone.svg';
             dropzoneBg.classList.add('is-glow');
