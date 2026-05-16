@@ -28,6 +28,61 @@ export function initDragDrop() {
     
     const originalQuestionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
     
+    // --- Inactivity Nudge Logic ---
+    let inactivityTimer = null;
+    const handNudge = document.getElementById('hand-nudge');
+
+    function resetInactivityTimer() {
+        if (handNudge) {
+            handNudge.classList.remove('show');
+            handNudge.classList.add('hidden');
+        }
+        clearTimeout(inactivityTimer);
+        
+        // Don't show nudge if celebrating
+        if (dropzoneBg.classList.contains('success-glow')) return;
+        
+        inactivityTimer = setTimeout(showNudge, 10000);
+    }
+
+    function showNudge() {
+        if (dropzoneBg.classList.contains('success-glow') || !handNudge) return;
+        
+        const targetCoin = document.querySelector('.money-item[data-value="5"]:not(.dropped-coin)');
+        if (!targetCoin) return;
+
+        const rect = targetCoin.getBoundingClientRect();
+        const gameContainer = document.querySelector('.game-container').getBoundingClientRect();
+        const dropzoneRect = document.querySelector('.dropzone-container').getBoundingClientRect();
+        
+        // Position relative to game container
+        const startX = ((rect.left - gameContainer.left) / gameContainer.width) * 100;
+        const startY = ((rect.top - gameContainer.top) / gameContainer.height) * 100;
+        
+        // Target center of dropzone
+        const targetX = ((dropzoneRect.left + dropzoneRect.width / 2 - gameContainer.left) / gameContainer.width) * 100;
+        const targetY = ((dropzoneRect.top + dropzoneRect.height / 2 - gameContainer.top) / gameContainer.height) * 100;
+        
+        // Calculate the vector distance
+        const tx = targetX - startX;
+        const ty = targetY - startY;
+        
+        handNudge.style.left = `${startX + 1}%`;
+        handNudge.style.top = `${startY + 2}%`;
+        handNudge.style.setProperty('--nudge-tx', `${tx}vw`);
+        handNudge.style.setProperty('--nudge-ty', `${ty}vh`);
+        
+        handNudge.classList.remove('hidden');
+        handNudge.classList.add('show');
+    }
+
+    ['mousedown', 'mousemove', 'touchstart', 'touchmove', 'click', 'dragstart'].forEach(evt => {
+        window.addEventListener(evt, resetInactivityTimer, { passive: true });
+    });
+
+    resetInactivityTimer();
+    // ------------------------------
+    
     let draggedItemValue = null;
     let draggedItemOrigin = null;
     let draggedItemType = null;
