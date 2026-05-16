@@ -59,18 +59,14 @@ export function initDragDrop() {
         const startX = ((rect.left - gameContainer.left) / gameContainer.width) * 100;
         const startY = ((rect.top - gameContainer.top) / gameContainer.height) * 100;
         
-        // Target center of dropzone
-        const targetX = ((dropzoneRect.left + dropzoneRect.width / 2 - gameContainer.left) / gameContainer.width) * 100;
-        const targetY = ((dropzoneRect.top + dropzoneRect.height / 2 - gameContainer.top) / gameContainer.height) * 100;
-        
-        // Calculate the vector distance
-        const tx = targetX - startX;
-        const ty = targetY - startY;
+        // Calculate the exact pixel distance from coin to center of dropzone
+        const tx = (dropzoneRect.left + dropzoneRect.width / 2) - (rect.left + rect.width / 2);
+        const ty = (dropzoneRect.top + dropzoneRect.height / 2) - (rect.top + rect.height / 2);
         
         handNudge.style.left = `${startX + 1}%`;
         handNudge.style.top = `${startY + 2}%`;
-        handNudge.style.setProperty('--nudge-tx', `${tx}vw`);
-        handNudge.style.setProperty('--nudge-ty', `${ty}vh`);
+        handNudge.style.setProperty('--nudge-tx', `${tx}px`);
+        handNudge.style.setProperty('--nudge-ty', `${ty}px`);
         
         handNudge.classList.remove('hidden');
         handNudge.classList.add('show');
