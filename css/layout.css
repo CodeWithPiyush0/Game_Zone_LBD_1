@@ -22,9 +22,11 @@
 .game-container {
     position: absolute;
     width: 100vw;
-    height: 56.25vw; /* 1080/1920 * 100 */
+    height: 56.25vw;
+    /* 1080/1920 * 100 */
     max-height: 100vh;
-    max-width: 177.78vh; /* 1920/1080 * 100 */
+    max-width: 177.78vh;
+    /* 1920/1080 * 100 */
     display: flex;
     flex-direction: column;
     container-type: size;
@@ -68,9 +70,11 @@
     width: 100%;
     height: 100%;
     z-index: 10;
-    pointer-events: none; /* Let clicks pass through to interactive elements */
+    pointer-events: none;
+    /* Let clicks pass through to interactive elements */
 }
 
-.ui-layer > * {
-    pointer-events: auto; /* Re-enable for child elements */
+.ui-layer>* {
+    pointer-events: auto;
+    /* Re-enable for child elements */
 }

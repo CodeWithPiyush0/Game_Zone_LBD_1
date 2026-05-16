@@ -100,15 +100,16 @@ export function initDragDrop() {
             return;
         }
 
-        // Play the material drop sound
-        if (draggedItemType === 'note') {
-            playSound('note');
-        } else {
-            playSound('drop');
-        }
-
         if (draggedItemValue === '5') {
             // Success dropping 5 coin
+            
+            // Play the material drop sound
+            if (draggedItemType === 'note') {
+                playSound('note');
+            } else {
+                playSound('drop');
+            }
+            
             droppedCoinsCount++;
             questionContent.innerHTML = originalQuestionHTML; // Reset any previous error text
             updateDropzoneBackground();
