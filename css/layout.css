@@ -6,7 +6,23 @@
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    background-color: var(--bg-color);
+    background-color: #0b001a; /* Fallback deep purple */
+    position: relative;
+}
+
+/* Ambient glow to fill the black bars seamlessly without distorting the game */
+.app-wrapper::before {
+    content: "";
+    position: absolute;
+    top: -5%;
+    left: -5%;
+    width: 110%;
+    height: 110%;
+    background-image: url('../assets/images/BG.png');
+    background-size: cover;
+    background-position: center;
+    filter: blur(40px) brightness(0.6) saturate(1.5);
+    z-index: 0;
 }
 
 .cabinet-wrapper {
@@ -16,7 +32,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: var(--bg-color);
+    z-index: 1; /* Keep above ambient background */
 }
 
 .game-container {

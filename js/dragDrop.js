@@ -298,10 +298,10 @@ export function initDragDrop() {
             triggerSuccessAnimation();
             checkBtn.classList.add('hidden');
             
-            // Reset game after celebration
+            // Reset game 3 seconds after celebration
             setTimeout(() => {
                 resetGame();
-            }, 6000);
+            }, 3000);
         }
     });
 
