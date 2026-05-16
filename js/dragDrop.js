@@ -33,29 +33,119 @@ export function initDragDrop() {
     let draggedItemType = null;
     
     moneyItems.forEach(item => {
-        item.addEventListener('dragstart', (e) => {
-            draggedItemValue = item.getAttribute('data-value');
-            draggedItemType = item.classList.contains('note') ? 'note' : 'coin';
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+        
+        // Touch events
+        item.addEventListener('touchstart', handleTouchStart, {passive: false});
+        item.addEventListener('touchmove', handleTouchMove, {passive: false});
+        item.addEventListener('touchend', handleTouchEnd);
+        item.addEventListener('touchcancel', handleTouchEnd);
+    });
+
+    function handleDragStart(e) {
+        const item = e.currentTarget;
+        draggedItemValue = item.getAttribute('data-value');
+        draggedItemType = item.classList.contains('note') ? 'note' : 'coin';
+        
+        if (item.classList.contains('dropped-coin')) {
+            draggedItemOrigin = item;
+        } else {
             draggedItemOrigin = null; // Came from tray
-            
-            const img = item.querySelector('img');
-            const originalSrc = img.src;
+        }
+        
+        const img = item.querySelector('img');
+        const originalSrc = img.src;
+        if (!item.classList.contains('dropped-coin')) {
             img.setAttribute('data-original', originalSrc);
             img.src = originalSrc.replace('_Default', '_Glow');
-            
-            e.dataTransfer.effectAllowed = 'copy';
-            e.dataTransfer.setData('text/plain', draggedItemValue);
-        });
+        }
         
-        item.addEventListener('dragend', (e) => {
-            const img = item.querySelector('img');
-            if (img.getAttribute('data-original')) {
-                img.src = img.getAttribute('data-original');
-            }
-            // Revert hover glow if drag ended without dropping
-            updateDropzoneBackground();
-        });
-    });
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = item.classList.contains('dropped-coin') ? 'move' : 'copy';
+            e.dataTransfer.setData('text/plain', draggedItemValue);
+        }
+    }
+
+    function handleDragEnd(e) {
+        const item = e.currentTarget;
+        const img = item.querySelector('img');
+        if (img && img.getAttribute('data-original')) {
+            img.src = img.getAttribute('data-original');
+        }
+        if (item.classList.contains('dropped-coin')) {
+            draggedItemOrigin = null;
+        }
+        updateDropzoneBackground();
+    }
+
+    // --- Touch Logic ---
+    let touchClone = null;
+    let touchOffsetX = 0;
+    let touchOffsetY = 0;
+
+    function handleTouchStart(e) {
+        if (e.targetTouches.length !== 1) return;
+        const item = e.currentTarget;
+        
+        const touch = e.targetTouches[0];
+        const rect = item.getBoundingClientRect();
+        
+        touchOffsetX = touch.clientX - rect.left;
+        touchOffsetY = touch.clientY - rect.top;
+        
+        handleDragStart(e);
+        
+        touchClone = item.cloneNode(true);
+        touchClone.style.position = 'fixed';
+        touchClone.style.left = `${rect.left}px`;
+        touchClone.style.top = `${rect.top}px`;
+        touchClone.style.width = `${rect.width}px`;
+        touchClone.style.height = `${rect.height}px`;
+        touchClone.style.opacity = '0.8';
+        touchClone.style.pointerEvents = 'none';
+        touchClone.style.zIndex = '9999';
+        
+        document.body.appendChild(touchClone);
+        
+        if (droppedCoinsCount === 0 && !draggedItemOrigin) {
+            dropzoneBg.classList.add('is-glow');
+        }
+        
+        // Prevent default only after we setup the clone, to prevent scrolling while dragging
+        e.preventDefault();
+    }
+
+    function handleTouchMove(e) {
+        if (!touchClone) return;
+        e.preventDefault(); // Stop scrolling
+        const touch = e.targetTouches[0];
+        touchClone.style.left = `${touch.clientX - touchOffsetX}px`;
+        touchClone.style.top = `${touch.clientY - touchOffsetY}px`;
+    }
+
+    function handleTouchEnd(e) {
+        if (!touchClone) return;
+        const item = e.currentTarget;
+        const touch = e.changedTouches[0];
+        
+        handleDragEnd(e);
+        
+        touchClone.remove();
+        touchClone = null;
+        
+        const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+        const isDropzone = dropTarget && (dropTarget.closest('.dropzone-container') || dropTarget.id === 'dropzone');
+        const isTray = dropTarget && dropTarget.closest('.money-tray');
+        
+        if (isDropzone) {
+            handleDropInDropzone();
+        } else if (isTray) {
+            handleDropInTray();
+        }
+        
+        updateDropzoneBackground();
+    }
     
     function updateDropzoneBackground() {
         if (dropzoneContainer.classList.contains('shake')) return; // Don't override error state
@@ -97,7 +187,10 @@ export function initDragDrop() {
     
     dropzoneContainer.addEventListener('drop', (e) => {
         e.preventDefault();
-        
+        handleDropInDropzone();
+    });
+
+    function handleDropInDropzone() {
         if (draggedItemOrigin) {
             // Dragged within dropzone, do nothing
             return;
@@ -120,19 +213,17 @@ export function initDragDrop() {
             const newCoin = document.createElement('div');
             newCoin.className = 'dropped-coin';
             newCoin.draggable = true;
+            newCoin.setAttribute('data-value', '5'); // Required for dragging back
             
-            // Add drag events for returning to tray
-            newCoin.addEventListener('dragstart', (ev) => {
-                draggedItemValue = '5';
-                draggedItemType = 'coin';
-                draggedItemOrigin = newCoin;
-                ev.dataTransfer.effectAllowed = 'move';
-                // Don't need glow logic for returning to tray
-            });
+            // Add mouse drag events for returning to tray
+            newCoin.addEventListener('dragstart', handleDragStart);
+            newCoin.addEventListener('dragend', handleDragEnd);
             
-            newCoin.addEventListener('dragend', () => {
-                draggedItemOrigin = null;
-            });
+            // Add touch events for returning to tray
+            newCoin.addEventListener('touchstart', handleTouchStart, {passive: false});
+            newCoin.addEventListener('touchmove', handleTouchMove, {passive: false});
+            newCoin.addEventListener('touchend', handleTouchEnd);
+            newCoin.addEventListener('touchcancel', handleTouchEnd);
             
             const coinImg = document.createElement('img');
             coinImg.src = 'assets/images/Money/Five_Rupee_Default.png';
@@ -145,7 +236,7 @@ export function initDragDrop() {
             playSound('error');
             triggerErrorState();
         }
-    });
+    }
     
     // Allow dropping back to tray
     moneyTray.addEventListener('dragover', (e) => {
@@ -155,6 +246,10 @@ export function initDragDrop() {
     
     moneyTray.addEventListener('drop', (e) => {
         e.preventDefault();
+        handleDropInTray();
+    });
+
+    function handleDropInTray() {
         if (draggedItemOrigin) {
             playSound('drop');
             draggedItemOrigin.remove();
@@ -163,7 +258,7 @@ export function initDragDrop() {
             draggedItemOrigin = null;
             updateDropzoneBackground();
         }
-    });
+    }
     
     function updateDropzoneLayout(count) {
         dropzoneArea.className = 'dropzone-area'; // reset

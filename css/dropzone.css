@@ -71,6 +71,7 @@
     transition: all 0.3s ease;
     cursor: grab;
     pointer-events: auto; /* Required to allow dragging out of the dropzone */
+    flex-shrink: 0; /* Prevents coins from shrinking when row fills up */
 }
 
 .dropped-coin:active {
@@ -94,15 +95,24 @@
 
 .dropzone-area.layout-3 {
     flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: 5%; /* Space between rows when wrapped */
+    padding: 2% 10%; /* Keep coins away from the very edges */
 }
 
 .dropzone-area.layout-3 .dropped-coin {
     margin-top: 0;
-    margin-left: -3%; /* Stacks horizontally with overlap */
+    margin-left: -1.5%; /* Symmetrical overlap left */
+    margin-right: -1.5%; /* Symmetrical overlap right */
 }
 
 .dropzone-area.layout-3 .dropped-coin:first-child {
     margin-left: 0;
+}
+
+.dropzone-area.layout-3 .dropped-coin:last-child {
+    margin-right: 0;
 }
 
 .action-btn {
