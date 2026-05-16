@@ -9,6 +9,7 @@ export function initDragDrop() {
     const checkBtn = document.getElementById('check-btn');
     const questionContent = document.querySelector('.question-content');
     const confetti = document.getElementById('confetti');
+    const dropzoneText = document.getElementById('dropzone-text');
     
     const sounds = {
         drop: new Audio('assets/sounds/drop.mp3'),
@@ -60,18 +61,21 @@ export function initDragDrop() {
         if (dropzoneContainer.classList.contains('shake')) return; // Don't override error state
         if (dropzoneContainer.classList.contains('success-pop')) return; // Don't override success animation
         
+        // Remove specialized glows
+        dropzoneBg.classList.remove('success-glow', 'error-glow');
+        
         if (droppedCoinsCount > 0) {
             checkBtn.classList.remove('hidden');
+            dropzoneText.classList.add('hidden'); // Hide text when items are inside
         } else {
             checkBtn.classList.add('hidden');
             questionContent.innerHTML = originalQuestionHTML;
+            dropzoneText.classList.remove('hidden'); // Show text when empty
         }
 
         if (droppedCoinsCount === 0) {
-            dropzoneBg.src = 'assets/images/Default_dropZone.svg';
             dropzoneBg.classList.remove('is-glow');
         } else {
-            dropzoneBg.src = 'assets/images/Glow_dropZone.svg';
             dropzoneBg.classList.add('is-glow');
         }
     }
@@ -80,7 +84,6 @@ export function initDragDrop() {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
         if (droppedCoinsCount === 0 && !draggedItemOrigin) {
-            dropzoneBg.src = 'assets/images/Glow_dropZone.svg';
             dropzoneBg.classList.add('is-glow');
         }
     });
@@ -140,13 +143,7 @@ export function initDragDrop() {
         } else {
             // Incorrect
             playSound('error');
-            dropzoneBg.src = 'assets/images/Incorrect_dropZone.svg';
-            dropzoneBg.classList.add('is-glow'); // Incorrect_dropZone might also share the viewBox, safely apply it
-            dropzoneContainer.classList.add('shake');
-            setTimeout(() => {
-                dropzoneContainer.classList.remove('shake');
-                updateDropzoneBackground();
-            }, 500);
+            triggerErrorState();
         }
     });
     
@@ -187,27 +184,50 @@ export function initDragDrop() {
         if (droppedCoinsCount < 5) {
             // Failure: Less coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Oops! You need <span style="color: #FFD600;">more</span> to make ₹25</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too few coins, add more</p>';
             triggerErrorState();
         } else if (droppedCoinsCount > 5) {
             // Failure: More coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Oops! That is <span style="color: #FFD600;">more</span> than ₹25</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too many coins, remove some</p>';
             triggerErrorState();
         } else if (droppedCoinsCount === 5) {
             // Success!
             playSound('success');
             questionContent.innerHTML = '<p>Yay! You have won the <span class="highlight">tickets!</span></p>';
-            dropzoneBg.src = 'assets/images/Success_dropZone.svg';
-            dropzoneBg.classList.add('is-glow');
+            
+            // Apply success CSS glow instead of changing src
+            dropzoneBg.classList.remove('is-glow', 'error-glow');
+            dropzoneBg.classList.add('success-glow');
+            
             triggerSuccessAnimation();
             checkBtn.classList.add('hidden');
+            
+            // Reset game after celebration
+            setTimeout(() => {
+                resetGame();
+            }, 6000);
         }
     });
 
+    function resetGame() {
+        droppedCoinsCount = 0;
+        dropzoneArea.innerHTML = '';
+        dropzoneArea.className = 'dropzone-area'; // reset layouts
+        
+        // Remove all glows
+        dropzoneBg.classList.remove('is-glow', 'success-glow', 'error-glow');
+        
+        questionContent.innerHTML = originalQuestionHTML;
+        checkBtn.classList.add('hidden');
+        dropzoneText.classList.remove('hidden'); // Restore text
+    }
+
     function triggerErrorState() {
-        dropzoneBg.src = 'assets/images/Incorrect_dropZone.svg';
-        dropzoneBg.classList.add('is-glow');
+        // Apply error CSS glow instead of changing src
+        dropzoneBg.classList.remove('is-glow', 'success-glow');
+        dropzoneBg.classList.add('error-glow');
+        
         dropzoneContainer.classList.add('shake');
         setTimeout(() => {
             dropzoneContainer.classList.remove('shake');

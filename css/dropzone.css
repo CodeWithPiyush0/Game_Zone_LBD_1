@@ -16,12 +16,38 @@
     width: 100%;
     height: 100%;
     object-fit: contain;
-    transition: transform 0.1s ease;
+    transition: filter 0.3s ease; /* Transition glows */
 }
 
 .dropzone-bg.is-glow {
-    /* Scale uniformly to counter the object-fit shrink from the 1656x578 viewBox */
-    transform: scale(1.1245); 
+    /* Blue/cyan glow for standard drag */
+    filter: drop-shadow(0px 0px 10px rgba(0, 204, 255, 0.7));
+}
+
+.dropzone-bg.success-glow {
+    /* Green glow for success */
+    filter: drop-shadow(0px 0px 12px rgba(0, 255, 128, 0.8));
+}
+
+.dropzone-bg.error-glow {
+    /* Red glow for failure */
+    filter: drop-shadow(0px 0px 12px rgba(255, 50, 50, 0.8));
+}
+
+.dropzone-text {
+    position: absolute;
+    z-index: 1;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 2vw; /* Fits arcade scaling */
+    color: rgba(0, 229, 255, 0.6); /* #00E5FF at 60% opacity */
+    pointer-events: none;
+    letter-spacing: 2px;
+    font-weight: 600;
+    transition: opacity 0.2s ease;
+}
+
+.dropzone-text.hidden {
+    opacity: 0;
 }
 
 
@@ -81,10 +107,10 @@
 
 .action-btn {
     position: absolute;
-    bottom: 15%;
+    bottom: 8%; /* Lowered from 15% */
     left: 50%;
     transform: translateX(-50%);
-    width: 12%;
+    width: 15%; /* Increased from 12% */
     cursor: pointer;
     background: none;
     border: none;

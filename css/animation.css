@@ -29,62 +29,62 @@
     pointer-events: none;
     z-index: 100;
     overflow: hidden;
+    perspective: 1000px; /* Enable 3D space */
+}
+
+.success-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 100;
+    opacity: 0;
+    animation: arcadeFlash 0.5s ease-out forwards;
+}
+
+@keyframes arcadeFlash {
+    0% { opacity: 0.4; }
+    100% { opacity: 0; }
 }
 
 .anim-ticket-strip {
     position: absolute;
-    width: 25%; /* Generous size for strips */
+    width: 25%;
     object-fit: contain;
-    transform: translate(-50%, -50%) scale(0);
+    transform: translate3d(-50%, -50%, 0) scale(0);
     opacity: 0;
+    transform-style: preserve-3d;
 }
 
 .anim-ticket-single {
     position: absolute;
-    width: 10%; /* Individual tickets */
+    width: 9%;
     object-fit: contain;
     opacity: 0;
+    transform-style: preserve-3d;
 }
 
-@keyframes stripBurst {
-    0% {
-        transform: translate(-50%, -50%) scale(0);
-        opacity: 0;
-    }
-    15% {
-        opacity: 1;
-    }
-    60% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot)) scale(var(--scale));
-        opacity: 0;
-    }
+.anim-confetti {
+    width: 4%; /* Confetti sizing */
 }
 
-@keyframes ticketFall {
+@keyframes cornerBurst {
     0% {
-        transform: translate(0, 0) rotate(var(--rot-start)) scale(var(--scale));
-        opacity: 0;
+        transform: translate3d(0, 0, 0) scale(var(--scale)) rotateZ(0deg) rotateX(0deg) rotateY(0deg);
+        opacity: 1;
+        animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); /* Explosive ease-out up */
     }
-    10% {
-        opacity: var(--start-opacity, 1);
-    }
-    85% {
-        /* Bouncing point */
-        transform: translate(var(--tx), 95vh) rotate(var(--rot-end)) scale(var(--scale));
-        opacity: var(--start-opacity, 1);
-        animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
-    }
-    92% {
-        /* Bounce up */
-        transform: translate(calc(var(--tx) * 1.1), 90vh) rotate(calc(var(--rot-end) + 20deg)) scale(var(--scale));
-        opacity: 0.8;
-        animation-timing-function: ease-in;
+    45% {
+        /* Peak of arc */
+        transform: translate3d(calc(var(--tx) * 0.6), var(--peak-y), 50px) scale(var(--scale)) rotateZ(calc(var(--rot) * 0.5)) rotateX(360deg);
+        opacity: 1;
+        animation-timing-function: cubic-bezier(0.5, 0, 1, 1); /* Accelerating ease-in down */
     }
     100% {
-        transform: translate(calc(var(--tx) * 1.2), 110vh) rotate(calc(var(--rot-end) + 40deg)) scale(var(--scale));
+        /* Fall below screen */
+        transform: translate3d(var(--tx), 15vh, -50px) scale(var(--scale)) rotateZ(var(--rot)) rotateX(720deg) rotateY(360deg);
         opacity: 0;
     }
 }
