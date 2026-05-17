@@ -180,8 +180,6 @@ export function initDragDrop() {
         const item = e.currentTarget;
         const touch = e.changedTouches[0];
         
-        handleDragEnd(e);
-        
         touchClone.remove();
         touchClone = null;
         
@@ -194,6 +192,10 @@ export function initDragDrop() {
         } else if (isTray) {
             handleDropInTray();
         }
+        
+        // Fire handleDragEnd AFTER drop logic to simulate correct HTML5 drag lifecycle
+        // This ensures draggedItemOrigin is not nullified before handleDropInDropzone needs it
+        handleDragEnd(e);
         
         updateDropzoneBackground();
     }
