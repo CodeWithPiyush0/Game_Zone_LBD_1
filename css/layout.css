@@ -100,3 +100,43 @@
     pointer-events: auto;
     /* Re-enable for child elements */
 }
+
+/* Level Transition Overlay */
+.level-transition-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(11, 0, 26, 0.95);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.level-transition-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.level-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 8vw;
+    font-weight: 700;
+    color: #00E5FF;
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.8);
+    margin: 0;
+}
+
+.level-subtitle {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 5vw;
+    font-weight: 600;
+    color: #FFD600;
+    margin-top: 2%;
+    margin-bottom: 0;
+}

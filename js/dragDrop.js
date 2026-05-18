@@ -409,22 +409,57 @@ export function initDragDrop() {
             
             // Load next level smoothly 3 seconds after celebration
             setTimeout(() => {
+                let nextLevel = currentLevel + 1;
+                
+                const overlay = document.getElementById('level-transition-overlay');
+                const title = document.getElementById('transition-title');
+                const subtitle = document.getElementById('transition-subtitle');
                 const uiLayer = document.querySelector('.ui-layer');
+                const screen0 = document.getElementById('screen-0');
+                const playBtnImg = document.querySelector('#play-btn img');
+                
                 uiLayer.classList.add('level-fade');
                 
                 setTimeout(() => {
-                    if (currentLevel === 1) {
-                        loadLevel(2);
-                    } else if (currentLevel === 2) {
-                        loadLevel(3);
-                    } else if (currentLevel === 3) {
-                        loadLevel(4);
-                    } else {
-                        // Completed level 4, can loop back or show final screen
-                        loadLevel(1);
+                    if (nextLevel > 4) {
+                        // All Levels Completed state
+                        title.textContent = `ALL LEVELS COMPLETED!`;
+                        subtitle.textContent = ``;
+                        overlay.classList.remove('hidden');
+                        
+                        setTimeout(() => {
+                            overlay.classList.add('hidden');
+                            uiLayer.classList.remove('level-fade');
+                            
+                            // Show start screen again with updated play button
+                            if (screen0 && playBtnImg) {
+                                screen0.classList.remove('hidden');
+                                playBtnImg.src = 'assets/images/Play_again_BTN.svg';
+                            }
+                            
+                            // Reset back to level 1 for the next play
+                            loadLevel(1);
+                        }, 3000); // 3 seconds to show completion text
+                        return; // End execution
                     }
-                    uiLayer.classList.remove('level-fade');
-                }, 500); // Wait 500ms for UI to fade out before swapping and fading back in
+                    
+                    // Normal Level Transition
+                    let nextTargetAmount = 25;
+                    if (nextLevel === 2) nextTargetAmount = 50;
+                    if (nextLevel === 3) nextTargetAmount = 100;
+                    if (nextLevel === 4) nextTargetAmount = 12;
+
+                    title.textContent = `LEVEL ${nextLevel}`;
+                    subtitle.textContent = `Make ₹${nextTargetAmount}`;
+                    overlay.classList.remove('hidden');
+                    
+                    loadLevel(nextLevel);
+                    
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        uiLayer.classList.remove('level-fade');
+                    }, 2500); // Keep overlay up for 2.5 seconds
+                }, 500); // Wait 500ms for UI to fade out before showing overlay
             }, 3000);
         }
     });
@@ -453,4 +488,20 @@ export function initDragDrop() {
             updateDropzoneBackground();
         }, 500);
     }
+    
+    // Show initial Level 1 transition when game starts
+    const overlay = document.getElementById('level-transition-overlay');
+    const title = document.getElementById('transition-title');
+    const subtitle = document.getElementById('transition-subtitle');
+    const uiLayer = document.querySelector('.ui-layer');
+    
+    uiLayer.classList.add('level-fade');
+    title.textContent = `LEVEL 1`;
+    subtitle.textContent = `Make ₹25`;
+    overlay.classList.remove('hidden');
+    
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        uiLayer.classList.remove('level-fade');
+    }, 2000);
 }
