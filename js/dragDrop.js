@@ -34,6 +34,8 @@ export function initDragDrop() {
 
     function loadLevel(level) {
         currentLevel = level;
+        const dynamicNote = document.getElementById('dynamic-note');
+        
         if (level === 1) {
             targetAmount = 25;
             requiredItemValue = '5';
@@ -46,7 +48,25 @@ export function initDragDrop() {
             requiredCount = 5;
             questionHTML = '<p>Use <span class="highlight">₹10</span> to make <span class="highlight">₹50</span></p>';
             document.querySelector('.target-amount').textContent = '₹50';
+        } else if (level === 3) {
+            targetAmount = 100;
+            requiredItemValue = '50';
+            requiredCount = 2;
+            questionHTML = '<p>Use <span class="highlight">₹50</span> to make <span class="highlight">₹100</span></p>';
+            document.querySelector('.target-amount').textContent = '₹100';
         }
+        
+        // Dynamically swap the second note
+        if (level === 3) {
+            dynamicNote.setAttribute('data-value', '50');
+            dynamicNote.querySelector('img').src = 'assets/images/Money/Fifty_Rupee_Note_Default.png';
+            dynamicNote.querySelector('img').alt = '₹50 Note';
+        } else {
+            dynamicNote.setAttribute('data-value', '20');
+            dynamicNote.querySelector('img').src = 'assets/images/Money/Twenty_Rupee_Note_Default.png';
+            dynamicNote.querySelector('img').alt = '₹20 Note';
+        }
+        
         questionContent.innerHTML = questionHTML;
         resetGame(true); // soft reset
     }
@@ -381,14 +401,22 @@ export function initDragDrop() {
             triggerSuccessAnimation();
             checkBtn.classList.add('hidden');
             
-            // Load next level 3 seconds after celebration
+            // Load next level smoothly 3 seconds after celebration
             setTimeout(() => {
-                if (currentLevel === 1) {
-                    loadLevel(2);
-                } else {
-                    // Completed level 2, can loop back or show final screen
-                    loadLevel(1);
-                }
+                const uiLayer = document.querySelector('.ui-layer');
+                uiLayer.classList.add('level-fade');
+                
+                setTimeout(() => {
+                    if (currentLevel === 1) {
+                        loadLevel(2);
+                    } else if (currentLevel === 2) {
+                        loadLevel(3);
+                    } else {
+                        // Completed level 3, can loop back or show final screen
+                        loadLevel(1);
+                    }
+                    uiLayer.classList.remove('level-fade');
+                }, 500); // Wait 500ms for UI to fade out before swapping and fading back in
             }, 3000);
         }
     });

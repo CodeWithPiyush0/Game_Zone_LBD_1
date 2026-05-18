@@ -87,7 +87,13 @@
     height: 100%;
     z-index: 10;
     pointer-events: none;
+    transition: opacity 0.5s ease-in-out;
     /* Let clicks pass through to interactive elements */
+}
+
+.ui-layer.level-fade {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .ui-layer>* {
