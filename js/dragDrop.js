@@ -26,7 +26,30 @@ export function initDragDrop() {
         }
     }
     
-    const originalQuestionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
+    let currentLevel = 1;
+    let targetAmount = 25;
+    let requiredItemValue = '5';
+    let requiredCount = 5;
+    let questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
+
+    function loadLevel(level) {
+        currentLevel = level;
+        if (level === 1) {
+            targetAmount = 25;
+            requiredItemValue = '5';
+            requiredCount = 5;
+            questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
+            document.querySelector('.target-amount').textContent = '₹25';
+        } else if (level === 2) {
+            targetAmount = 50;
+            requiredItemValue = '10';
+            requiredCount = 5;
+            questionHTML = '<p>Use <span class="highlight">₹10</span> to make <span class="highlight">₹50</span></p>';
+            document.querySelector('.target-amount').textContent = '₹50';
+        }
+        questionContent.innerHTML = questionHTML;
+        resetGame(true); // soft reset
+    }
     
     // --- Inactivity Nudge Logic ---
     let inactivityTimer = null;
@@ -48,7 +71,7 @@ export function initDragDrop() {
     function showNudge() {
         if (dropzoneBg.classList.contains('success-glow') || !handNudge) return;
         
-        const targetCoin = document.querySelector('.money-item[data-value="5"]:not(.dropped-coin)');
+        const targetCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
         if (!targetCoin) return;
 
         const rect = targetCoin.getBoundingClientRect();
@@ -82,6 +105,7 @@ export function initDragDrop() {
     let draggedItemValue = null;
     let draggedItemOrigin = null;
     let draggedItemType = null;
+    let draggedItemSrc = null;
     
     moneyItems.forEach(item => {
         item.addEventListener('dragstart', handleDragStart);
@@ -107,6 +131,7 @@ export function initDragDrop() {
         
         const img = item.querySelector('img');
         const originalSrc = img.src;
+        draggedItemSrc = originalSrc;
         if (!item.classList.contains('dropped-coin')) {
             img.setAttribute('data-original', originalSrc);
             img.src = originalSrc.replace('_Default', '_Glow');
@@ -212,7 +237,7 @@ export function initDragDrop() {
             dropzoneText.classList.add('hidden'); // Hide text when items are inside
         } else {
             checkBtn.classList.add('hidden');
-            questionContent.innerHTML = originalQuestionHTML;
+            questionContent.innerHTML = questionHTML;
             dropzoneText.classList.remove('hidden'); // Show text when empty
         }
 
@@ -249,8 +274,8 @@ export function initDragDrop() {
             return;
         }
 
-        if (draggedItemValue === '5') {
-            // Success dropping 5 coin
+        if (draggedItemValue === requiredItemValue) {
+            // Success dropping required item
             
             // Play the material drop sound
             if (draggedItemType === 'note') {
@@ -260,13 +285,13 @@ export function initDragDrop() {
             }
             
             droppedCoinsCount++;
-            questionContent.innerHTML = originalQuestionHTML; // Reset any previous error text
+            questionContent.innerHTML = questionHTML; // Reset any previous error text
             updateDropzoneBackground();
             
             const newCoin = document.createElement('div');
-            newCoin.className = 'dropped-coin';
+            newCoin.className = `dropped-coin ${draggedItemType === 'note' ? 'note' : 'coin'}`;
             newCoin.draggable = true;
-            newCoin.setAttribute('data-value', '5'); // Required for dragging back
+            newCoin.setAttribute('data-value', draggedItemValue); // Required for dragging back
             
             // Add mouse drag events for returning to tray
             newCoin.addEventListener('dragstart', handleDragStart);
@@ -279,7 +304,8 @@ export function initDragDrop() {
             newCoin.addEventListener('touchcancel', handleTouchEnd);
             
             const coinImg = document.createElement('img');
-            coinImg.src = 'assets/images/Money/Five_Rupee_Default.png';
+            // If the src contains _Glow from the tray, use _Default for the dropped version
+            coinImg.src = draggedItemSrc ? draggedItemSrc.replace('_Glow', '_Default') : '';
             newCoin.appendChild(coinImg);
             
             dropzoneArea.appendChild(newCoin);
@@ -329,17 +355,17 @@ export function initDragDrop() {
     checkBtn.addEventListener('click', () => {
         playSound('click');
         
-        if (droppedCoinsCount < 5) {
+        if (droppedCoinsCount < requiredCount) {
             // Failure: Less coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too few coins, add more</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too few items, add more</p>';
             triggerErrorState();
-        } else if (droppedCoinsCount > 5) {
+        } else if (droppedCoinsCount > requiredCount) {
             // Failure: More coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too many coins, remove some</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too many items, remove some</p>';
             triggerErrorState();
-        } else if (droppedCoinsCount === 5) {
+        } else if (droppedCoinsCount === requiredCount) {
             // Success!
             playSound('success');
             questionContent.innerHTML = '<p>Yay! You have won the <span class="highlight">tickets!</span></p>';
@@ -351,14 +377,19 @@ export function initDragDrop() {
             triggerSuccessAnimation();
             checkBtn.classList.add('hidden');
             
-            // Reset game 3 seconds after celebration
+            // Load next level 3 seconds after celebration
             setTimeout(() => {
-                resetGame();
+                if (currentLevel === 1) {
+                    loadLevel(2);
+                } else {
+                    // Completed level 2, can loop back or show final screen
+                    loadLevel(1);
+                }
             }, 3000);
         }
     });
 
-    function resetGame() {
+    function resetGame(soft = false) {
         droppedCoinsCount = 0;
         dropzoneArea.innerHTML = '';
         dropzoneArea.className = 'dropzone-area'; // reset layouts
@@ -366,7 +397,7 @@ export function initDragDrop() {
         // Remove all glows
         dropzoneBg.classList.remove('is-glow', 'success-glow', 'error-glow');
         
-        questionContent.innerHTML = originalQuestionHTML;
+        if (!soft) questionContent.innerHTML = questionHTML;
         checkBtn.classList.add('hidden');
         dropzoneText.classList.remove('hidden'); // Restore text
     }
