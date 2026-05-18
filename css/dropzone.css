@@ -67,11 +67,15 @@
 
 .dropped-coin {
     position: relative;
-    width: 8%; /* accurately sized coin */
+    width: 8%; /* base width for coin */
     transition: all 0.3s ease;
     cursor: grab;
     pointer-events: auto; /* Required to allow dragging out of the dropzone */
     flex-shrink: 0; /* Prevents coins from shrinking when row fills up */
+}
+
+.dropped-coin.note {
+    width: 25%; /* accurately sized note (wider) */
 }
 
 .dropped-coin:active {
@@ -90,29 +94,37 @@
 }
 
 .dropzone-area.layout-2 {
-    gap: 0.5%; /* ~8px space */
+    gap: 2%; /* Add explicit gap for 2 items */
 }
 
 .dropzone-area.layout-3 {
     flex-direction: row;
     flex-wrap: wrap;
     align-content: center;
+    justify-content: center;
     row-gap: 5%; /* Space between rows when wrapped */
-    padding: 2% 10%; /* Keep coins away from the very edges */
+    padding: 2% 10%; /* Keep items away from edges */
 }
 
+/* Reset margins for layout-3 items */
 .dropzone-area.layout-3 .dropped-coin {
-    margin-top: 0;
-    margin-left: -1.5%; /* Symmetrical overlap left */
-    margin-right: -1.5%; /* Symmetrical overlap right */
+    margin: 0;
 }
 
-.dropzone-area.layout-3 .dropped-coin:first-child {
-    margin-left: 0;
+/* Same coins overlap slightly */
+.dropzone-area.layout-3 .dropped-coin.coin + .dropped-coin.coin {
+    margin-left: -3%;
 }
 
-.dropzone-area.layout-3 .dropped-coin:last-child {
-    margin-right: 0;
+/* Same notes overlap significantly (like a deck of cards) */
+.dropzone-area.layout-3 .dropped-coin.note + .dropped-coin.note {
+    margin-left: -14%;
+}
+
+/* Different types NEVER overlap each other, add space */
+.dropzone-area.layout-3 .dropped-coin.coin + .dropped-coin.note,
+.dropzone-area.layout-3 .dropped-coin.note + .dropped-coin.coin {
+    margin-left: 2%;
 }
 
 .action-btn {
