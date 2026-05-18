@@ -54,6 +54,12 @@ export function initDragDrop() {
             requiredCount = 2;
             questionHTML = '<p>Use <span class="highlight">₹50</span> to make <span class="highlight">₹100</span></p>';
             document.querySelector('.target-amount').textContent = '₹100';
+        } else if (level === 4) {
+            targetAmount = 12;
+            requiredItemValue = '2';
+            requiredCount = 6;
+            questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span></p>';
+            document.querySelector('.target-amount').textContent = '₹12';
         }
         
         // Dynamically swap the second note
@@ -411,8 +417,10 @@ export function initDragDrop() {
                         loadLevel(2);
                     } else if (currentLevel === 2) {
                         loadLevel(3);
+                    } else if (currentLevel === 3) {
+                        loadLevel(4);
                     } else {
-                        // Completed level 3, can loop back or show final screen
+                        // Completed level 4, can loop back or show final screen
                         loadLevel(1);
                     }
                     uiLayer.classList.remove('level-fade');
