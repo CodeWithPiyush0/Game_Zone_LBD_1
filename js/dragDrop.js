@@ -330,7 +330,11 @@ export function initDragDrop() {
 
     function handleDropInTray() {
         if (draggedItemOrigin) {
-            playSound('drop');
+            if (draggedItemType === 'note') {
+                playSound('note');
+            } else {
+                playSound('drop');
+            }
             draggedItemOrigin.remove();
             droppedCoinsCount--;
             updateDropzoneLayout(droppedCoinsCount);
