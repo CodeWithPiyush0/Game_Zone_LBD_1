@@ -126,3 +126,36 @@
         opacity: 0;
     }
 }
+
+.ghost-coin-tutorial {
+    position: absolute;
+    width: 6%; /* Adjust to match coin scale */
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    animation: ghostDragAnim 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+
+@keyframes ghostDragAnim {
+    0% {
+        transform: translate(0, 0) scale(1.1);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(0, 0) scale(0.9);
+        opacity: 1;
+    }
+    70% {
+        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(0.9);
+        opacity: 1;
+    }
+    80% {
+        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(1.1);
+        opacity: 0;
+    }
+    100% {
+        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(1.1);
+        opacity: 0;
+    }
+}

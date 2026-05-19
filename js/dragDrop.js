@@ -27,43 +27,43 @@ export function initDragDrop() {
     }
     
     let currentLevel = 1;
-    let targetAmount = 25;
-    let requiredItemValue = '5';
-    let requiredCount = 5;
-    let questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
+    let targetAmount = 12;
+    let requiredItemValue = '2';
+    let requiredCount = 6;
+    let questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
 
     function loadLevel(level) {
         currentLevel = level;
         const dynamicNote = document.getElementById('dynamic-note');
         
         if (level === 1) {
-            targetAmount = 25;
-            requiredItemValue = '5';
-            requiredCount = 5;
-            questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span></p>';
-            document.querySelector('.target-amount').textContent = '₹25';
-        } else if (level === 2) {
-            targetAmount = 50;
-            requiredItemValue = '10';
-            requiredCount = 5;
-            questionHTML = '<p>Use <span class="highlight">₹10</span> to make <span class="highlight">₹50</span></p>';
-            document.querySelector('.target-amount').textContent = '₹50';
-        } else if (level === 3) {
-            targetAmount = 100;
-            requiredItemValue = '50';
-            requiredCount = 2;
-            questionHTML = '<p>Use <span class="highlight">₹50</span> to make <span class="highlight">₹100</span></p>';
-            document.querySelector('.target-amount').textContent = '₹100';
-        } else if (level === 4) {
             targetAmount = 12;
             requiredItemValue = '2';
             requiredCount = 6;
-            questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span></p>';
+            questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
             document.querySelector('.target-amount').textContent = '₹12';
+        } else if (level === 2) {
+            targetAmount = 25;
+            requiredItemValue = '5';
+            requiredCount = 5;
+            questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span>.</p>';
+            document.querySelector('.target-amount').textContent = '₹25';
+        } else if (level === 3) {
+            targetAmount = 50;
+            requiredItemValue = '10';
+            requiredCount = 5;
+            questionHTML = '<p>Use <span class="highlight">₹10</span> to make <span class="highlight">₹50</span>.</p>';
+            document.querySelector('.target-amount').textContent = '₹50';
+        } else if (level === 4) {
+            targetAmount = 100;
+            requiredItemValue = '50';
+            requiredCount = 2;
+            questionHTML = '<p>Use <span class="highlight">₹50</span> to make <span class="highlight">₹100</span>.</p>';
+            document.querySelector('.target-amount').textContent = '₹100';
         }
         
         // Dynamically swap the second note
-        if (level === 3) {
+        if (level === 4) {
             dynamicNote.setAttribute('data-value', '50');
             dynamicNote.querySelector('img').src = 'assets/images/Money/Fifty_Rupee_Note_Default.png';
             dynamicNote.querySelector('img').alt = '₹50 Note';
@@ -79,50 +79,62 @@ export function initDragDrop() {
     
     // --- Inactivity Nudge Logic ---
     let inactivityTimer = null;
-    const handNudge = document.getElementById('hand-nudge');
+    let tutorialActive = true;
 
-    function resetInactivityTimer() {
-        if (handNudge) {
-            handNudge.classList.remove('show');
-            handNudge.classList.add('hidden');
+    function playGhostCoinAnimation() {
+        if (hasInteracted && !tutorialActive) {
+            if (dropzoneBg.classList.contains('success-glow')) return;
         }
-        clearTimeout(inactivityTimer);
-        
-        // Don't show nudge if celebrating
-        if (dropzoneBg.classList.contains('success-glow')) return;
-        
-        inactivityTimer = setTimeout(showNudge, 10000);
-    }
 
-    function showNudge() {
-        if (dropzoneBg.classList.contains('success-glow') || !handNudge) return;
+        const sourceCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
+        if (!sourceCoin) return;
         
-        const targetCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
-        if (!targetCoin) return;
-
-        const rect = targetCoin.getBoundingClientRect();
+        const ghost = document.createElement('img');
+        ghost.src = sourceCoin.querySelector('img').src;
+        ghost.className = 'ghost-coin-tutorial';
+        
+        const rect = sourceCoin.getBoundingClientRect();
         const gameContainer = document.querySelector('.game-container').getBoundingClientRect();
         const dropzoneRect = document.querySelector('.dropzone-container').getBoundingClientRect();
         
-        // Position relative to game container
         const startX = ((rect.left - gameContainer.left) / gameContainer.width) * 100;
         const startY = ((rect.top - gameContainer.top) / gameContainer.height) * 100;
         
-        // Calculate the exact pixel distance from coin to center of dropzone
         const tx = (dropzoneRect.left + dropzoneRect.width / 2) - (rect.left + rect.width / 2);
         const ty = (dropzoneRect.top + dropzoneRect.height / 2) - (rect.top + rect.height / 2);
         
-        handNudge.style.left = `${startX + 1}%`;
-        handNudge.style.top = `${startY + 2}%`;
-        handNudge.style.setProperty('--nudge-tx', `${tx}px`);
-        handNudge.style.setProperty('--nudge-ty', `${ty}px`);
+        ghost.style.left = `${startX + 1}%`;
+        ghost.style.top = `${startY + 2}%`;
+        ghost.style.setProperty('--nudge-tx', `${tx}px`);
+        ghost.style.setProperty('--nudge-ty', `${ty}px`);
         
-        handNudge.classList.remove('hidden');
-        handNudge.classList.add('show');
+        document.querySelector('.game-container').appendChild(ghost);
+        
+        setTimeout(() => {
+            if (ghost.parentElement) ghost.remove();
+        }, 2500);
     }
 
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+            if (!tutorialActive && !hasInteracted) {
+                playGhostCoinAnimation();
+            } else if (!tutorialActive) {
+                playGhostCoinAnimation();
+            }
+        }, 7000); // 7 seconds
+    }
+
+    let hasInteracted = false;
     ['mousedown', 'mousemove', 'touchstart', 'touchmove', 'click', 'dragstart'].forEach(evt => {
-        window.addEventListener(evt, resetInactivityTimer, { passive: true });
+        window.addEventListener(evt, () => {
+            if (!hasInteracted && evt !== 'mousemove') { // ignore mousemove for cancelling tutorial
+                hasInteracted = true;
+                tutorialActive = false;
+            }
+            resetInactivityTimer();
+        }, { passive: true });
     });
 
     resetInactivityTimer();
@@ -388,12 +400,12 @@ export function initDragDrop() {
         if (droppedCoinsCount < requiredCount) {
             // Failure: Less coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too few items, add more</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too few coins! Add more.</p>';
             triggerErrorState();
         } else if (droppedCoinsCount > requiredCount) {
             // Failure: More coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too many items, remove some</p>';
+            questionContent.innerHTML = '<p style="color: #FFD600;">Too many coins! Remove some.</p>';
             triggerErrorState();
         } else if (droppedCoinsCount === requiredCount) {
             // Success!
@@ -444,10 +456,10 @@ export function initDragDrop() {
                     }
                     
                     // Normal Level Transition
-                    let nextTargetAmount = 25;
-                    if (nextLevel === 2) nextTargetAmount = 50;
-                    if (nextLevel === 3) nextTargetAmount = 100;
-                    if (nextLevel === 4) nextTargetAmount = 12;
+                    let nextTargetAmount = 12;
+                    if (nextLevel === 2) nextTargetAmount = 25;
+                    if (nextLevel === 3) nextTargetAmount = 50;
+                    if (nextLevel === 4) nextTargetAmount = 100;
 
                     title.textContent = `LEVEL ${nextLevel}`;
                     subtitle.textContent = `Make ₹${nextTargetAmount}`;
@@ -497,11 +509,32 @@ export function initDragDrop() {
     
     uiLayer.classList.add('level-fade');
     title.textContent = `LEVEL 1`;
-    subtitle.textContent = `Make ₹25`;
+    subtitle.textContent = `Make ₹12`;
     overlay.classList.remove('hidden');
     
     setTimeout(() => {
         overlay.classList.add('hidden');
         uiLayer.classList.remove('level-fade');
+        
+        // Wait 4 seconds for kid to read instructions
+        setTimeout(() => {
+            if (!hasInteracted) playGhostCoinAnimation();
+            
+            // Show it a 2nd time after the first one finishes
+            setTimeout(() => {
+                if (!hasInteracted) playGhostCoinAnimation();
+            }, 2600);
+            
+            // Show it a 3rd time
+            setTimeout(() => {
+                if (!hasInteracted) playGhostCoinAnimation();
+                
+                // End tutorial mode and start inactivity timer
+                setTimeout(() => {
+                    tutorialActive = false;
+                    resetInactivityTimer();
+                }, 2600);
+            }, 5200);
+        }, 4000);
     }, 2000);
 }
