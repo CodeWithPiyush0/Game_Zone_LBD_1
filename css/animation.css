@@ -129,33 +129,39 @@
 
 .ghost-coin-tutorial {
     position: absolute;
-    width: 6%; /* Adjust to match coin scale */
+    width: 6%; /* Match the tray coin scale closely */
     z-index: 200;
     pointer-events: none;
     opacity: 0;
-    animation: ghostDragAnim 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    transform-origin: center center;
+    animation: ghostDragAnim 2.2s linear forwards;
+    filter: drop-shadow(0 8px 10px rgba(0,0,0,0.28)) brightness(0.98) saturate(0.9);
+    will-change: transform, opacity, filter;
 }
 
 @keyframes ghostDragAnim {
     0% {
-        transform: translate(0, 0) scale(1.1);
+        transform: translate3d(0, 0, 0) scale(0.94) rotate(-4deg);
         opacity: 0;
     }
-    10% {
-        transform: translate(0, 0) scale(0.9);
-        opacity: 1;
+    8% {
+        transform: translate3d(0, 0, 0) scale(0.98) rotate(-2deg);
+        opacity: 0.25;
     }
-    70% {
-        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(0.9);
-        opacity: 1;
+    45% {
+        transform: translate3d(calc(var(--nudge-tx) * 0.48), calc(var(--nudge-ty) * 0.48 - 8px), 0) scale(1) rotate(3deg);
+        opacity: 0.5;
     }
-    80% {
-        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(1.1);
+    78% {
+        transform: translate3d(calc(var(--nudge-tx) * 0.92), calc(var(--nudge-ty) * 0.92 - 2px), 0) scale(0.99) rotate(6deg);
+        opacity: 0.45;
+    }
+    86% {
+        transform: translate3d(var(--nudge-tx), var(--nudge-ty), 0) scale(1.02) rotate(8deg);
         opacity: 0;
     }
     100% {
-        transform: translate(var(--nudge-tx), var(--nudge-ty)) scale(1.1);
+        transform: translate3d(var(--nudge-tx), var(--nudge-ty), 0) scale(1.02) rotate(8deg);
         opacity: 0;
     }
 }

@@ -15,7 +15,7 @@ export function initDragDrop() {
         drop: new Audio('assets/sounds/drop.mp3'),
         note: new Audio('assets/sounds/note.mp3'),
         click: new Audio('assets/sounds/click.mp3'),
-        error: new Audio('assets/sounds/error.mp3'),
+        error: new Audio('assets/sounds/error3.mp3'),
         success: new Audio('assets/sounds/success1.mp3') // Used success1.mp3 based on folder contents
     };
 
@@ -77,67 +77,147 @@ export function initDragDrop() {
         resetGame(true); // soft reset
     }
     
-    // --- Inactivity Nudge Logic ---
-    let inactivityTimer = null;
-    let tutorialActive = true;
+    // --- Ghost Coin Hint Logic ---
+    // Level 1 plays a 3x ghost-coin tutorial 5s after the level becomes playable.
+    // Across all levels, 10s of user inactivity replays the ghost animation.
+    // A drag attempt cancels the pending tutorial and resets the idle clock.
+    const TUTORIAL_START_DELAY = 5000;
+    const TUTORIAL_REPEATS = 3;
+    const TUTORIAL_INTERVAL = 2800;
+    const IDLE_THRESHOLD = 10000;
+    const GHOST_ANIM_DURATION = 2400;
+    const transitionOverlayEl = document.getElementById('level-transition-overlay');
 
-    function playGhostCoinAnimation() {
-        if (hasInteracted && !tutorialActive) {
-            if (dropzoneBg.classList.contains('success-glow')) return;
-        }
+    let ghostHintActive = false;
+    let tutorialPlayed = false;
+    let tutorialTimers = [];
+    let idleTimer = null;
+    let userDragged = false;
+    let activeGhostEl = null;
+    let activeGhostFromIdle = false;
+    let activeGhostTimeout = null;
 
-        const sourceCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
+    function playGhostCoinAnimation(fromIdle = false) {
+        if (ghostHintActive) return;
+        if (dropzoneBg.classList.contains('success-glow')) return;
+        if (dropzoneContainer.classList.contains('shake')) return;
+
+        // Always use the ₹1 coin so the hint teaches the drag motion
+        // without revealing which denomination is the correct answer.
+        const sourceCoin = document.querySelector('.money-item[data-value="1"]:not(.dropped-coin)');
         if (!sourceCoin) return;
-        
+
+        ghostHintActive = true;
         const ghost = document.createElement('img');
         ghost.src = sourceCoin.querySelector('img').src;
         ghost.className = 'ghost-coin-tutorial';
-        
+
         const rect = sourceCoin.getBoundingClientRect();
         const gameContainer = document.querySelector('.game-container').getBoundingClientRect();
         const dropzoneRect = document.querySelector('.dropzone-container').getBoundingClientRect();
-        
+
         const startX = ((rect.left - gameContainer.left) / gameContainer.width) * 100;
         const startY = ((rect.top - gameContainer.top) / gameContainer.height) * 100;
-        
+
         const tx = (dropzoneRect.left + dropzoneRect.width / 2) - (rect.left + rect.width / 2);
         const ty = (dropzoneRect.top + dropzoneRect.height / 2) - (rect.top + rect.height / 2);
-        
+
         ghost.style.left = `${startX + 1}%`;
         ghost.style.top = `${startY + 2}%`;
         ghost.style.setProperty('--nudge-tx', `${tx}px`);
         ghost.style.setProperty('--nudge-ty', `${ty}px`);
-        
+
         document.querySelector('.game-container').appendChild(ghost);
-        
-        setTimeout(() => {
+
+        activeGhostEl = ghost;
+        activeGhostFromIdle = fromIdle;
+        activeGhostTimeout = setTimeout(() => {
             if (ghost.parentElement) ghost.remove();
-        }, 2500);
+            ghostHintActive = false;
+            if (activeGhostEl === ghost) {
+                activeGhostEl = null;
+                activeGhostFromIdle = false;
+                activeGhostTimeout = null;
+            }
+        }, GHOST_ANIM_DURATION);
     }
 
-    function resetInactivityTimer() {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(() => {
-            if (!tutorialActive && !hasInteracted) {
-                playGhostCoinAnimation();
-            } else if (!tutorialActive) {
-                playGhostCoinAnimation();
-            }
-        }, 7000); // 7 seconds
+    function stopActiveGhost() {
+        if (!activeGhostEl) return;
+        clearTimeout(activeGhostTimeout);
+        if (activeGhostEl.parentElement) activeGhostEl.remove();
+        activeGhostEl = null;
+        activeGhostFromIdle = false;
+        activeGhostTimeout = null;
+        ghostHintActive = false;
     }
 
-    let hasInteracted = false;
-    ['mousedown', 'mousemove', 'touchstart', 'touchmove', 'click', 'dragstart'].forEach(evt => {
-        window.addEventListener(evt, () => {
-            if (!hasInteracted && evt !== 'mousemove') { // ignore mousemove for cancelling tutorial
-                hasInteracted = true;
-                tutorialActive = false;
-            }
-            resetInactivityTimer();
-        }, { passive: true });
+    function cancelTutorialTimers() {
+        tutorialTimers.forEach(clearTimeout);
+        tutorialTimers = [];
+    }
+
+    function startLevel1Tutorial() {
+        if (tutorialPlayed || userDragged) return;
+        tutorialPlayed = true;
+
+        for (let i = 0; i < TUTORIAL_REPEATS; i++) {
+            const delay = TUTORIAL_START_DELAY + i * TUTORIAL_INTERVAL;
+            const timer = setTimeout(() => {
+                if (userDragged) {
+                    cancelTutorialTimers();
+                    return;
+                }
+                playGhostCoinAnimation();
+                resetIdleTimer();
+            }, delay);
+            tutorialTimers.push(timer);
+        }
+    }
+
+    function tryShowIdleHint() {
+        const transitionVisible = !transitionOverlayEl.classList.contains('hidden');
+        if (transitionVisible ||
+            dropzoneBg.classList.contains('success-glow') ||
+            dropzoneContainer.classList.contains('shake')) {
+            idleTimer = setTimeout(tryShowIdleHint, 1000);
+            return;
+        }
+        if (ghostHintActive) {
+            idleTimer = setTimeout(tryShowIdleHint, 500);
+            return;
+        }
+        playGhostCoinAnimation(true);
+        // Once the 10s threshold trips, the hint loops back-to-back at the
+        // animation cadence. Any user activity calls resetIdleTimer which
+        // clears this and restarts the 10s wait from scratch.
+        idleTimer = setTimeout(tryShowIdleHint, TUTORIAL_INTERVAL);
+    }
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(tryShowIdleHint, IDLE_THRESHOLD);
+    }
+
+    function onUserDragAttempt() {
+        // A real drag means the user knows what to do — kill anything in flight,
+        // including a tutorial ghost mid-animation.
+        userDragged = true;
+        cancelTutorialTimers();
+        stopActiveGhost();
+        resetIdleTimer();
+    }
+
+    function onUserActivity() {
+        // Generic input (mouse move, touch, click) cancels the idle ghost loop
+        // but lets a tutorial ghost finish its animation.
+        if (activeGhostFromIdle) stopActiveGhost();
+        resetIdleTimer();
+    }
+
+    ['mousedown', 'mousemove', 'touchstart', 'touchmove', 'click'].forEach(evt => {
+        window.addEventListener(evt, onUserActivity, { passive: true });
     });
-
-    resetInactivityTimer();
     // ------------------------------
     
     let draggedItemValue = null;
@@ -157,6 +237,7 @@ export function initDragDrop() {
     });
 
     function handleDragStart(e) {
+        onUserDragAttempt();
         const item = e.currentTarget;
         draggedItemValue = item.getAttribute('data-value');
         draggedItemType = item.classList.contains('note') ? 'note' : 'coin';
@@ -395,8 +476,8 @@ export function initDragDrop() {
 
     // Check button logic
     checkBtn.addEventListener('click', () => {
-        playSound('click');
-        
+        resetIdleTimer();
+
         if (droppedCoinsCount < requiredCount) {
             // Failure: Less coin
             playSound('error');
@@ -442,15 +523,16 @@ export function initDragDrop() {
                         setTimeout(() => {
                             overlay.classList.add('hidden');
                             uiLayer.classList.remove('level-fade');
-                            
+
                             // Show start screen again with updated play button
                             if (screen0 && playBtnImg) {
                                 screen0.classList.remove('hidden');
                                 playBtnImg.src = 'assets/images/Play_again_BTN.svg';
                             }
-                            
+
                             // Reset back to level 1 for the next play
                             loadLevel(1);
+                            clearTimeout(idleTimer);
                         }, 3000); // 3 seconds to show completion text
                         return; // End execution
                     }
@@ -466,10 +548,11 @@ export function initDragDrop() {
                     overlay.classList.remove('hidden');
                     
                     loadLevel(nextLevel);
-                    
+
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         uiLayer.classList.remove('level-fade');
+                        resetIdleTimer();
                     }, 2500); // Keep overlay up for 2.5 seconds
                 }, 500); // Wait 500ms for UI to fade out before showing overlay
             }, 3000);
@@ -515,26 +598,9 @@ export function initDragDrop() {
     setTimeout(() => {
         overlay.classList.add('hidden');
         uiLayer.classList.remove('level-fade');
-        
-        // Wait 4 seconds for kid to read instructions
-        setTimeout(() => {
-            if (!hasInteracted) playGhostCoinAnimation();
-            
-            // Show it a 2nd time after the first one finishes
-            setTimeout(() => {
-                if (!hasInteracted) playGhostCoinAnimation();
-            }, 2600);
-            
-            // Show it a 3rd time
-            setTimeout(() => {
-                if (!hasInteracted) playGhostCoinAnimation();
-                
-                // End tutorial mode and start inactivity timer
-                setTimeout(() => {
-                    tutorialActive = false;
-                    resetInactivityTimer();
-                }, 2600);
-            }, 5200);
-        }, 4000);
+
+        // Level 1 is now playable. Tutorial fires 5s from here; idle clock starts now.
+        if (currentLevel === 1) startLevel1Tutorial();
+        resetIdleTimer();
     }, 2000);
 }

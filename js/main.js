@@ -14,7 +14,8 @@ class GameApp {
         const screen0 = document.getElementById('screen-0');
         
         if (playBtn && screen0) {
-            playBtn.addEventListener('click', () => {
+            playBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const startSound = new Audio('assets/sounds/start.mp3');
                 startSound.play().catch(e => console.log('Audio play failed:', e));
                 
