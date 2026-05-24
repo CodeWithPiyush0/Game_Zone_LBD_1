@@ -1,4 +1,5 @@
 import { triggerSuccessAnimation } from './ticketBurst.js';
+import { playLevelIntro } from './level-intro.js';
 
 export function initDragDrop() {
     const moneyItems = document.querySelectorAll('.money-item');
@@ -503,58 +504,54 @@ export function initDragDrop() {
             // Load next level smoothly 3 seconds after celebration
             setTimeout(() => {
                 let nextLevel = currentLevel + 1;
-                
-                const overlay = document.getElementById('level-transition-overlay');
-                const title = document.getElementById('transition-title');
-                const subtitle = document.getElementById('transition-subtitle');
-                const uiLayer = document.querySelector('.ui-layer');
-                const screen0 = document.getElementById('screen-0');
-                const playBtnImg = document.querySelector('#play-btn img');
-                
-                uiLayer.classList.add('level-fade');
-                
-                setTimeout(() => {
-                    if (nextLevel > 4) {
-                        // All Levels Completed state
+
+                if (nextLevel > 4) {
+                    // All Levels Completed state — keep the legacy overlay flow
+                    const overlay = document.getElementById('level-transition-overlay');
+                    const title = document.getElementById('transition-title');
+                    const subtitle = document.getElementById('transition-subtitle');
+                    const uiLayer = document.querySelector('.ui-layer');
+                    const screen0 = document.getElementById('screen-0');
+                    const playBtnImg = document.querySelector('#play-btn img');
+
+                    uiLayer.classList.add('level-fade');
+
+                    setTimeout(() => {
                         title.textContent = `ALL LEVELS COMPLETED!`;
                         subtitle.textContent = ``;
                         overlay.classList.remove('hidden');
-                        
+
                         setTimeout(() => {
                             overlay.classList.add('hidden');
                             uiLayer.classList.remove('level-fade');
 
-                            // Show start screen again with updated play button
                             if (screen0 && playBtnImg) {
                                 screen0.classList.remove('hidden');
                                 playBtnImg.src = 'assets/images/Play_again_BTN.svg';
                             }
 
-                            // Reset back to level 1 for the next play
                             loadLevel(1);
                             clearTimeout(idleTimer);
-                        }, 3000); // 3 seconds to show completion text
-                        return; // End execution
-                    }
-                    
-                    // Normal Level Transition
-                    let nextTargetAmount = 12;
-                    if (nextLevel === 2) nextTargetAmount = 25;
-                    if (nextLevel === 3) nextTargetAmount = 50;
-                    if (nextLevel === 4) nextTargetAmount = 100;
+                        }, 3000);
+                    }, 500);
+                    return;
+                }
 
-                    title.textContent = `LEVEL ${nextLevel}`;
-                    subtitle.textContent = `Make ₹${nextTargetAmount}`;
-                    overlay.classList.remove('hidden');
-                    
+                // Normal Level Transition — cinematic intro
+                let nextTargetAmount = 12;
+                if (nextLevel === 2) nextTargetAmount = 25;
+                if (nextLevel === 3) nextTargetAmount = 50;
+                if (nextLevel === 4) nextTargetAmount = 100;
+
+                playLevelIntro(nextLevel, nextTargetAmount).then(() => {
+                    resetIdleTimer();
+                });
+
+                // Reset the dropzone 200 ms in, while the intro overlay is fully opaque,
+                // so the player never sees coins/glow disappear.
+                setTimeout(() => {
                     loadLevel(nextLevel);
-
-                    setTimeout(() => {
-                        overlay.classList.add('hidden');
-                        uiLayer.classList.remove('level-fade');
-                        resetIdleTimer();
-                    }, 2500); // Keep overlay up for 2.5 seconds
-                }, 500); // Wait 500ms for UI to fade out before showing overlay
+                }, 200);
             }, 3000);
         }
     });
@@ -584,23 +581,8 @@ export function initDragDrop() {
         }, 500);
     }
     
-    // Show initial Level 1 transition when game starts
-    const overlay = document.getElementById('level-transition-overlay');
-    const title = document.getElementById('transition-title');
-    const subtitle = document.getElementById('transition-subtitle');
-    const uiLayer = document.querySelector('.ui-layer');
-    
-    uiLayer.classList.add('level-fade');
-    title.textContent = `LEVEL 1`;
-    subtitle.textContent = `Make ₹12`;
-    overlay.classList.remove('hidden');
-    
-    setTimeout(() => {
-        overlay.classList.add('hidden');
-        uiLayer.classList.remove('level-fade');
-
-        // Level 1 is now playable. Tutorial fires 5s from here; idle clock starts now.
-        if (currentLevel === 1) startLevel1Tutorial();
-        resetIdleTimer();
-    }, 2000);
+    // The cinematic level-intro module already played the Level 1 banner.
+    // Just kick off the tutorial schedule and idle clock.
+    if (currentLevel === 1) startLevel1Tutorial();
+    resetIdleTimer();
 }
