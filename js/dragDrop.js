@@ -32,9 +32,13 @@ export function initDragDrop() {
     let requiredItemValue = '2';
     let requiredCount = 6;
     let questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
+    // True between a successful Check and the next level loading — blocks drag/drop
+    // so the celebration + cinematic intro can't be interrupted.
+    let levelLocked = false;
 
     function loadLevel(level) {
         currentLevel = level;
+        levelLocked = false;
         const dynamicNote = document.getElementById('dynamic-note');
         
         if (level === 1) {
@@ -238,6 +242,10 @@ export function initDragDrop() {
     });
 
     function handleDragStart(e) {
+        if (levelLocked) {
+            e.preventDefault();
+            return;
+        }
         onUserDragAttempt();
         const item = e.currentTarget;
         draggedItemValue = item.getAttribute('data-value');
@@ -281,6 +289,10 @@ export function initDragDrop() {
     let touchOffsetY = 0;
 
     function handleTouchStart(e) {
+        if (levelLocked) {
+            e.preventDefault();
+            return;
+        }
         if (e.targetTouches.length !== 1) return;
         const item = e.currentTarget;
         
@@ -389,6 +401,7 @@ export function initDragDrop() {
     });
 
     function handleDropInDropzone() {
+        if (levelLocked) return;
         if (draggedItemOrigin) {
             // Dragged within dropzone, do nothing
             return;
@@ -449,6 +462,7 @@ export function initDragDrop() {
     });
 
     function handleDropInTray() {
+        if (levelLocked) return;
         if (draggedItemOrigin) {
             if (draggedItemType === 'note') {
                 playSound('note');
@@ -491,13 +505,14 @@ export function initDragDrop() {
             triggerErrorState();
         } else if (droppedCoinsCount === requiredCount) {
             // Success!
+            levelLocked = true;
             playSound('success');
             questionContent.innerHTML = '<p>Yay! You have won the <span class="highlight">tickets!</span></p>';
-            
+
             // Apply success CSS glow instead of changing src
             dropzoneBg.classList.remove('is-glow', 'error-glow');
             dropzoneBg.classList.add('success-glow');
-            
+
             triggerSuccessAnimation();
             checkBtn.classList.add('hidden');
             

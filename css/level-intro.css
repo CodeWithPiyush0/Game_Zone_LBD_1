@@ -142,7 +142,9 @@
     100% { opacity: 0; }
 }
 
-/* Byte — sprite swaps handled by JS; transforms chain here. */
+/* Byte — sprite swaps handled by JS; transforms chain here.
+   transform-origin keeps the bottom edge planted: impact squash compresses
+   downward (weight) instead of lifting Byte off the title. */
 .level-intro-byte {
     position: absolute;
     top: 50%;
@@ -154,6 +156,7 @@
     -webkit-user-drag: none;
     filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
     transform: translate(-50%, -180vh) scale(0.92, 1.12);
+    transform-origin: 50% 100%;
     opacity: 1;
     will-change: transform, opacity;
     animation:
@@ -166,28 +169,28 @@
 
 @keyframes li-byte-fall {
     0%   { transform: translate(-50%, -180vh) scale(0.92, 1.12); opacity: 1; }
-    100% { transform: translate(-50%, -115%)  scale(0.92, 1.12); opacity: 1; }
+    100% { transform: translate(-50%, -200%)  scale(0.92, 1.12); opacity: 1; }
 }
 
 @keyframes li-byte-impact {
-    0%   { transform: translate(-50%, -115%) scale(0.92, 1.12); }
-    100% { transform: translate(-50%, -115%) scale(1.20, 0.82); }
+    0%   { transform: translate(-50%, -200%) scale(0.92, 1.12); }
+    100% { transform: translate(-50%, -200%) scale(1.20, 0.82); }
 }
 
 @keyframes li-byte-recover {
-    0%   { transform: translate(-50%, -115%) scale(1.20, 0.82); }
-    60%  { transform: translate(-50%, -150%) scale(1, 1); }
-    100% { transform: translate(-50%, -125%) scale(1, 1); }
+    0%   { transform: translate(-50%, -200%) scale(1.20, 0.82); }
+    60%  { transform: translate(-50%, -235%) scale(1, 1); }
+    100% { transform: translate(-50%, -210%) scale(1, 1); }
 }
 
 @keyframes li-byte-settle {
-    0%   { transform: translate(-50%, -125%) scale(1, 1); }
-    100% { transform: translate(-50%, -115%) scale(1, 1); }
+    0%   { transform: translate(-50%, -210%) scale(1, 1); }
+    100% { transform: translate(-50%, -200%) scale(1, 1); }
 }
 
 @keyframes li-byte-out {
-    0%   { transform: translate(-50%, -115%) scale(1, 1);       opacity: 1; }
-    100% { transform: translate(-50%, -145%) scale(0.85, 0.85); opacity: 0; }
+    0%   { transform: translate(-50%, -200%) scale(1, 1);       opacity: 1; }
+    100% { transform: translate(-50%, -230%) scale(0.85, 0.85); opacity: 0; }
 }
 
 /* Shockwave — single expanding ring from the impact point.
