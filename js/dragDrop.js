@@ -532,7 +532,7 @@ export function initDragDrop() {
                     uiLayer.classList.add('level-fade');
 
                     setTimeout(() => {
-                        title.textContent = `ALL LEVELS COMPLETED!`;
+                        title.textContent = `All Levels Done.`;
                         subtitle.textContent = ``;
                         overlay.classList.remove('hidden');
 
