@@ -30,6 +30,7 @@ export function initDragDrop() {
     let currentLevel = 1;
     let targetAmount = 12;
     let requiredItemValue = '2';
+    let requiredItemType = 'coin'; // 'coin' or 'note' — drives error message wording
     let requiredCount = 6;
     let questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
     // True between a successful Check and the next level loading — blocks drag/drop
@@ -67,6 +68,9 @@ export function initDragDrop() {
             document.querySelector('.target-amount').textContent = '₹100';
         }
         
+        // Level 4 uses the ₹50 note; every other level uses coins.
+        requiredItemType = (level === 4) ? 'note' : 'coin';
+
         // Dynamically swap the second note
         if (level === 4) {
             dynamicNote.setAttribute('data-value', '50');
@@ -84,12 +88,12 @@ export function initDragDrop() {
     
     // --- Ghost Coin Hint Logic ---
     // Level 1 plays a 3x ghost-coin tutorial 5s after the level becomes playable.
-    // Across all levels, 10s of user inactivity replays the ghost animation.
+    // Across all levels, 15s of user inactivity replays the ghost animation.
     // A drag attempt cancels the pending tutorial and resets the idle clock.
     const TUTORIAL_START_DELAY = 5000;
     const TUTORIAL_REPEATS = 3;
     const TUTORIAL_INTERVAL = 2800;
-    const IDLE_THRESHOLD = 10000;
+    const IDLE_THRESHOLD = 15000;
     const GHOST_ANIM_DURATION = 2400;
     const transitionOverlayEl = document.getElementById('level-transition-overlay');
 
@@ -99,17 +103,22 @@ export function initDragDrop() {
     let idleTimer = null;
     let userDragged = false;
     let activeGhostEl = null;
-    let activeGhostFromIdle = false;
+    let activeGhostCancelOnActivity = false;
     let activeGhostTimeout = null;
+    let returnHintTimers = [];
+    let returnHintArmed = false;   // once armed, any user activity cancels the hint
+    let returnHintArmTimer = null;
+    // First "remove a coin" hint waits out the 500ms error shake before playing.
+    const RETURN_HINT_START_DELAY = 700;
 
     function playGhostCoinAnimation(fromIdle = false) {
         if (ghostHintActive) return;
         if (dropzoneBg.classList.contains('success-glow')) return;
         if (dropzoneContainer.classList.contains('shake')) return;
 
-        // Always use the ₹1 coin so the hint teaches the drag motion
-        // without revealing which denomination is the correct answer.
-        const sourceCoin = document.querySelector('.money-item[data-value="1"]:not(.dropped-coin)');
+        // Use the denomination the current level actually requires, so the
+        // hint shows the kid exactly which coin/note to drag.
+        const sourceCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
         if (!sourceCoin) return;
 
         ghostHintActive = true;
@@ -135,13 +144,13 @@ export function initDragDrop() {
         document.querySelector('.game-container').appendChild(ghost);
 
         activeGhostEl = ghost;
-        activeGhostFromIdle = fromIdle;
+        activeGhostCancelOnActivity = fromIdle;
         activeGhostTimeout = setTimeout(() => {
             if (ghost.parentElement) ghost.remove();
             ghostHintActive = false;
             if (activeGhostEl === ghost) {
                 activeGhostEl = null;
-                activeGhostFromIdle = false;
+                activeGhostCancelOnActivity = false;
                 activeGhostTimeout = null;
             }
         }, GHOST_ANIM_DURATION);
@@ -152,9 +161,86 @@ export function initDragDrop() {
         clearTimeout(activeGhostTimeout);
         if (activeGhostEl.parentElement) activeGhostEl.remove();
         activeGhostEl = null;
-        activeGhostFromIdle = false;
+        activeGhostCancelOnActivity = false;
         activeGhostTimeout = null;
         ghostHintActive = false;
+    }
+
+    // Reverse of playGhostCoinAnimation: a ghost coin drags from a dropped coin
+    // in the dropzone back to its slot in the tray — shows the kid how to remove
+    // a coin when there are too many.
+    function playGhostReturnAnimation() {
+        if (ghostHintActive) return;
+        if (dropzoneBg.classList.contains('success-glow')) return;
+        if (dropzoneContainer.classList.contains('shake')) return;
+
+        const droppedCoins = dropzoneArea.querySelectorAll('.dropped-coin');
+        if (droppedCoins.length === 0) return;
+        const sourceCoin = droppedCoins[droppedCoins.length - 1]; // the most recent one
+        const trayCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
+        if (!trayCoin) return;
+
+        ghostHintActive = true;
+        const ghost = document.createElement('img');
+        ghost.src = sourceCoin.querySelector('img').src;
+        ghost.className = 'ghost-coin-tutorial';
+
+        const rect = sourceCoin.getBoundingClientRect();
+        const gameContainer = document.querySelector('.game-container').getBoundingClientRect();
+        const trayRect = trayCoin.getBoundingClientRect();
+
+        const startX = ((rect.left - gameContainer.left) / gameContainer.width) * 100;
+        const startY = ((rect.top - gameContainer.top) / gameContainer.height) * 100;
+
+        const tx = (trayRect.left + trayRect.width / 2) - (rect.left + rect.width / 2);
+        const ty = (trayRect.top + trayRect.height / 2) - (rect.top + rect.height / 2);
+
+        ghost.style.left = `${startX}%`;
+        ghost.style.top = `${startY}%`;
+        ghost.style.setProperty('--nudge-tx', `${tx}px`);
+        ghost.style.setProperty('--nudge-ty', `${ty}px`);
+
+        document.querySelector('.game-container').appendChild(ghost);
+
+        activeGhostEl = ghost;
+        activeGhostCancelOnActivity = true; // like idle hints, any activity kills it
+        activeGhostTimeout = setTimeout(() => {
+            if (ghost.parentElement) ghost.remove();
+            ghostHintActive = false;
+            if (activeGhostEl === ghost) {
+                activeGhostEl = null;
+                activeGhostCancelOnActivity = false;
+                activeGhostTimeout = null;
+            }
+        }, GHOST_ANIM_DURATION);
+    }
+
+    function cancelReturnHint() {
+        returnHintTimers.forEach(clearTimeout);
+        returnHintTimers = [];
+        clearTimeout(returnHintArmTimer);
+        returnHintArmTimer = null;
+        returnHintArmed = false;
+    }
+
+    // Play the "drag a coin back to the tray" hint TUTORIAL_REPEATS times.
+    // Stops early if the player removes enough coins or starts dragging.
+    function startReturnHint() {
+        cancelReturnHint();
+        // Arm on the next tick so the Check click that triggered this hint
+        // (its own click/mouse event) doesn't immediately cancel it.
+        returnHintArmTimer = setTimeout(() => { returnHintArmed = true; }, 0);
+        for (let i = 0; i < TUTORIAL_REPEATS; i++) {
+            const delay = RETURN_HINT_START_DELAY + i * TUTORIAL_INTERVAL;
+            const timer = setTimeout(() => {
+                if (droppedCoinsCount <= requiredCount) {
+                    cancelReturnHint();
+                    return;
+                }
+                playGhostReturnAnimation();
+            }, delay);
+            returnHintTimers.push(timer);
+        }
     }
 
     function cancelTutorialTimers() {
@@ -209,14 +295,16 @@ export function initDragDrop() {
         // including a tutorial ghost mid-animation.
         userDragged = true;
         cancelTutorialTimers();
+        cancelReturnHint();
         stopActiveGhost();
         resetIdleTimer();
     }
 
     function onUserActivity() {
         // Generic input (mouse move, touch, click) cancels the idle ghost loop
-        // but lets a tutorial ghost finish its animation.
-        if (activeGhostFromIdle) stopActiveGhost();
+        // and the "remove a coin" hint, but lets a tutorial ghost finish.
+        if (activeGhostCancelOnActivity) stopActiveGhost();
+        if (returnHintArmed) cancelReturnHint();
         resetIdleTimer();
     }
 
@@ -496,13 +584,15 @@ export function initDragDrop() {
         if (droppedCoinsCount < requiredCount) {
             // Failure: Less coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too few coins! Add more.</p>';
+            questionContent.innerHTML = `<p style="color: #FFD600;">Too few ${requiredItemType}s! Add more.</p>`;
             triggerErrorState();
         } else if (droppedCoinsCount > requiredCount) {
             // Failure: More coin
             playSound('error');
-            questionContent.innerHTML = '<p style="color: #FFD600;">Too many coins! Remove some.</p>';
+            questionContent.innerHTML = `<p style="color: #FFD600;">Too many ${requiredItemType}s! Remove some.</p>`;
             triggerErrorState();
+            // Show the kid how to drag a coin back to the tray (3x).
+            startReturnHint();
         } else if (droppedCoinsCount === requiredCount) {
             // Success!
             levelLocked = true;
