@@ -14,6 +14,12 @@ class GameApp {
     init() {
         console.log("Arcade Game Initialized - Phase 1");
 
+        // Looping background music — kicked off inside the Play click handler
+        // so it counts as a user gesture and the browser actually plays it.
+        const bgMusic = new Audio('assets/sounds/BG_Music.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.09;
+
         // One-shot, idempotent wrapper the cinematic intro invokes on completion.
         let gameStarted = false;
         window.startGame = () => {
@@ -30,6 +36,10 @@ class GameApp {
                 e.stopPropagation();
                 const startSound = new Audio('assets/sounds/start.mp3');
                 startSound.play().catch(err => console.log('Audio play failed:', err));
+
+                // Start BG music if it hasn't already (calling play() on an
+                // already-playing element is a safe no-op).
+                bgMusic.play().catch(err => console.log('BG music play failed:', err));
 
                 screen0.classList.add('hidden');
 
