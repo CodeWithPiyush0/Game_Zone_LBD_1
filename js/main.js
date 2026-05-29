@@ -6,6 +6,16 @@ import { playLevelIntro } from './level-intro.js';
 const INITIAL_LEVEL = 1;
 const INITIAL_TARGET = 12;
 
+// Re-trigger the gold-glow attention pop on the TARGET amount.
+// Removes + re-adds the class with a reflow in between so the animation restarts.
+function popTarget() {
+    const el = document.querySelector('.target-amount');
+    if (!el) return;
+    el.classList.remove('attention-pop');
+    void el.offsetWidth;
+    el.classList.add('attention-pop');
+}
+
 class GameApp {
     constructor() {
         this.init();
@@ -62,11 +72,11 @@ class GameApp {
                 screen0.classList.add('hidden');
 
                 // Cinematic intro plays, then triggers window.startGame() at the end.
-                playLevelIntro(INITIAL_LEVEL, INITIAL_TARGET);
+                playLevelIntro(INITIAL_LEVEL, INITIAL_TARGET).then(popTarget);
             });
         } else {
             // Fallback if screen 0 is missing — go straight into the intro.
-            playLevelIntro(INITIAL_LEVEL, INITIAL_TARGET);
+            playLevelIntro(INITIAL_LEVEL, INITIAL_TARGET).then(popTarget);
         }
     }
 }

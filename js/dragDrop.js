@@ -651,6 +651,13 @@ export function initDragDrop() {
 
                 playLevelIntro(nextLevel, nextTargetAmount).then(() => {
                     resetIdleTimer();
+                    // Re-trigger the gold-glow attention pop on the new target.
+                    const targetEl = document.querySelector('.target-amount');
+                    if (targetEl) {
+                        targetEl.classList.remove('attention-pop');
+                        void targetEl.offsetWidth;
+                        targetEl.classList.add('attention-pop');
+                    }
                 });
 
                 // Reset the dropzone 200 ms in, while the intro overlay is fully opaque,

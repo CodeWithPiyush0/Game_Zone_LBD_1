@@ -42,10 +42,66 @@
 .target-amount {
     font-size: 3.38cqw; /* 65px / 1920px */
     font-weight: bold;
-    color: white;
+    color: #ffd84a;            /* crisp gold — readable, not washed out */
     line-height: 1;
     font-family: 'Rajdhani', sans-serif;
     margin-top: -2%;
+    display: inline-block;
+    transform-origin: center center;
+    text-shadow:
+        0 1px 0  rgba(120, 60, 0, 0.55),   /* tiny dark drop for legibility */
+        0 0 3px  rgba(255, 240, 170, 0.85),
+        0 0 9px  rgba(255, 200, 30, 0.55);
+    animation: target-breathing 1.6s ease-in-out infinite;
+    will-change: transform, text-shadow;
+}
+
+@keyframes target-breathing {
+    0%, 100% {
+        transform: scale(1);
+        text-shadow:
+            0 1px 0  rgba(120, 60, 0, 0.55),
+            0 0 3px  rgba(255, 240, 170, 0.85),
+            0 0 9px  rgba(255, 200, 30, 0.55);
+    }
+    50% {
+        transform: scale(1.06);
+        text-shadow:
+            0 1px 0  rgba(120, 60, 0, 0.55),
+            0 0 4px  rgba(255, 250, 200, 1),
+            0 0 14px rgba(255, 210, 60, 0.75);
+    }
+}
+
+/* One-off pop when a new level loads — JS toggles this class.
+   Pop runs immediately; breathing resumes once the pop finishes. */
+.target-amount.attention-pop {
+    animation:
+        target-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+        target-breathing 1.6s ease-in-out 700ms infinite;
+}
+
+@keyframes target-pop {
+    0% {
+        transform: scale(0.7);
+        opacity: 0.5;
+    }
+    45% {
+        transform: scale(1.18);
+        opacity: 1;
+        text-shadow:
+            0 1px 0  rgba(120, 60, 0, 0.55),
+            0 0 6px  rgba(255, 255, 220, 1),
+            0 0 18px rgba(255, 215, 60, 0.85);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+        text-shadow:
+            0 1px 0  rgba(120, 60, 0, 0.55),
+            0 0 3px  rgba(255, 240, 170, 0.85),
+            0 0 9px  rgba(255, 200, 30, 0.55);
+    }
 }
 
 .target-label {
