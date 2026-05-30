@@ -10,6 +10,7 @@ import {
     findCommentById,
     getAuthor,
     setAuthor,
+    refreshComments,
 } from './qa-storage.js';
 import { createPopupModule } from './qa-popup.js';
 import { createSidebarModule } from './qa-sidebar.js';
@@ -128,7 +129,7 @@ function showNameModal({ initialName = '', isRename = false } = {}) {
     });
 }
 
-function init() {
+async function init() {
     if (!isQAActive()) return;
 
     injectStylesheet();
@@ -250,12 +251,12 @@ function init() {
 
     // ── Wire popup + sidebar ────────────────────────────────────────
     popup = createPopupModule({
-        onSave: ({ selector, x, y, text, editId }) => {
+        onSave: async ({ selector, x, y, text, editId }) => {
             if (editId) {
-                updateComment(editId, { text });
+                await updateComment(editId, { text });
             } else {
                 // Tag the new comment with whichever screen is detected right now.
-                addComment({ selector, x, y, text, screen: currentScreen });
+                await addComment({ selector, x, y, text, screen: currentScreen });
             }
             renderPins();
             sidebar.render(currentScreen);
@@ -275,8 +276,8 @@ function init() {
                 editId: c.id,
             });
         },
-        onDelete: (id) => {
-            deleteComment(id);
+        onDelete: async (id) => {
+            await deleteComment(id);
             renderPins();
             sidebar.render(currentScreen);
             popup.close();
@@ -291,6 +292,10 @@ function init() {
         },
     });
 
+    // Pull the current set of comments from Supabase before first render.
+    // If the network call fails the wrappers log + return [] so the UI still loads.
+    await refreshComments();
+
     renderPins();
     sidebar.render(currentScreen);
     sidebar.setAuthor(getAuthor() || '—');
@@ -302,6 +307,15 @@ function init() {
             sidebar.setAuthor(name);
         });
     }
+
+    // Background sync — pick up comments posted by other reviewers without
+    // requiring a page reload. 10s is plenty for a QA workflow; cheap because
+    // it's a single SELECT scoped to this page.
+    setInterval(async () => {
+        await refreshComments();
+        renderPins();
+        sidebar.render(currentScreen);
+    }, 10000);
 
     // Poll the DOM for screen changes (cheap; runs only while QA is active).
     // When the player advances a level or the cinematic intro shows/hides,
@@ -341,7 +355,7 @@ function init() {
                     selector: bestSelector(e.target),
                 });
             }
-        }, true); // capture
+        }, { capture: true, passive: false }); // capture + active so preventDefault works on touch events
     });
 
     // Hover highlight — only while in comment mode.

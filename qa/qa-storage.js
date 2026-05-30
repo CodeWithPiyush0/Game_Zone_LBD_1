@@ -1,9 +1,21 @@
-// QA storage — localStorage helpers. Single key, JSON array of comments.
-// Comment shape: { id, selector, x, y, text, page, createdAt }
+// QA storage layer.
+//   • Author identity stays in localStorage (per-browser tag).
+//   • Comments live in Supabase. A small in-memory cache lets the renderers
+//     stay synchronous; mutations refresh the cache.
+//
+// Comment shape: { id, selector, x, y, text, page, screen, author,
+//                  parentId, status, createdAt }
 
-const STORAGE_KEY = 'qa-comments-v1';
-const AUTHOR_KEY  = 'qa-author-name';
+import {
+    fetchComments,
+    insertComment,
+    updateCommentRow,
+    deleteCommentRow,
+} from './qa-supabase.js';
 
+const AUTHOR_KEY = 'qa-author-name';
+
+// ── Author identity (local) ─────────────────────────────────────────
 export function getAuthor() {
     try {
         return localStorage.getItem(AUTHOR_KEY) || '';
@@ -21,45 +33,24 @@ export function setAuthor(name) {
     }
 }
 
-function uid() {
-    return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-}
+// ── Comment cache + Supabase sync ───────────────────────────────────
+let cachedComments = [];
 
-function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(parsed)) return [];
-        // Legacy migration: backfill missing screen + author fields so older
-        // comments don't disappear or show as blank.
-        return parsed.map(c => {
-            let next = c;
-            if (!next.screen) next = { ...next, screen: 'Pre-LBD' };
-            if (!next.author) next = { ...next, author: 'Unknown' };
-            return next;
-        });
-    } catch {
-        return [];
-    }
-}
-
-function writeAll(list) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    } catch (e) {
-        console.warn('[QA] localStorage write failed', e);
-    }
+export async function refreshComments() {
+    cachedComments = await fetchComments({ page: location.pathname });
+    return cachedComments;
 }
 
 export function getCommentsForCurrentScreen(screen) {
-    const page = location.pathname;
-    return readAll().filter(c => c.page === page && c.screen === screen);
+    return cachedComments.filter(c => c.screen === screen);
 }
 
-export function addComment({ selector, x, y, text, screen }) {
-    const list = readAll();
-    const entry = {
-        id: uid(),
+export function findCommentById(id) {
+    return cachedComments.find(c => c.id === id) || null;
+}
+
+export async function addComment({ selector, x, y, text, screen }) {
+    const entry = await insertComment({
         selector,
         x,
         y,
@@ -67,26 +58,22 @@ export function addComment({ selector, x, y, text, screen }) {
         page: location.pathname,
         screen: screen || 'Other',
         author: getAuthor() || 'Anonymous',
-        createdAt: Date.now(),
-    };
-    list.push(entry);
-    writeAll(list);
+    });
+    if (entry) cachedComments.push(entry);
     return entry;
 }
 
-export function updateComment(id, patch) {
-    const list = readAll();
-    const idx = list.findIndex(c => c.id === id);
-    if (idx === -1) return null;
-    list[idx] = { ...list[idx], ...patch };
-    writeAll(list);
-    return list[idx];
+export async function updateComment(id, patch) {
+    const updated = await updateCommentRow(id, patch);
+    if (updated) {
+        const idx = cachedComments.findIndex(c => c.id === id);
+        if (idx !== -1) cachedComments[idx] = updated;
+    }
+    return updated;
 }
 
-export function deleteComment(id) {
-    writeAll(readAll().filter(c => c.id !== id));
-}
-
-export function findCommentById(id) {
-    return readAll().find(c => c.id === id) || null;
+export async function deleteComment(id) {
+    const ok = await deleteCommentRow(id);
+    if (ok) cachedComments = cachedComments.filter(c => c.id !== id);
+    return ok;
 }
