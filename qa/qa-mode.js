@@ -10,6 +10,14 @@ import {
     findCommentById,
     getAuthor,
     setAuthor,
+    getRole,
+    setRole,
+    setPassword,
+    clearSession,
+    isPowerRole,
+    canEditComment,
+    canChangeStatus,
+    verifyPassword,
     refreshComments,
 } from './qa-storage.js';
 import { createPopupModule } from './qa-popup.js';
@@ -66,9 +74,10 @@ function injectStylesheet() {
     document.head.appendChild(link);
 }
 
-// Centered modal that collects the QA tester's name. Returns a Promise that
-// resolves with the entered name (string), or null if cancelled (rename mode only).
-function showNameModal({ initialName = '', isRename = false } = {}) {
+// Centered modal that collects the QA tester's name + role + (for power roles)
+// password. Returns a Promise resolving to { name, role } on success, or null
+// if cancelled in switch-mode. Password is stored separately via setPassword().
+function showRoleModal({ initialName = '', initialRole = '', isSwitch = false } = {}) {
     return new Promise((resolve) => {
         const modal = document.createElement('div');
         modal.className = 'qa-name-modal';
@@ -76,40 +85,114 @@ function showNameModal({ initialName = '', isRename = false } = {}) {
             <div class="qa-name-modal__card" role="dialog" aria-modal="true">
                 <h3 class="qa-name-modal__title"></h3>
                 <p class="qa-name-modal__sub"></p>
-                <input class="qa-name-modal__input" type="text" placeholder="e.g. Piyush" maxlength="40" />
+                <label class="qa-name-modal__field">
+                    <span class="qa-name-modal__label">Your name</span>
+                    <input class="qa-name-modal__input qa-name-modal__input--name" type="text" placeholder="e.g. Piyush" maxlength="40" autocomplete="off" />
+                </label>
+                <label class="qa-name-modal__field">
+                    <span class="qa-name-modal__label">Role</span>
+                    <select class="qa-name-modal__input qa-name-modal__input--role">
+                        <option value="other">Other (can comment + edit own)</option>
+                        <option value="qa">QA (full access — needs password)</option>
+                        <option value="owner">Owner (full access — needs password)</option>
+                    </select>
+                </label>
+                <label class="qa-name-modal__field qa-name-modal__field--password" hidden>
+                    <span class="qa-name-modal__label">Password</span>
+                    <input class="qa-name-modal__input qa-name-modal__input--password" type="password" placeholder="Owner / QA password" autocomplete="current-password" />
+                </label>
+                <div class="qa-name-modal__error" hidden></div>
                 <div class="qa-name-modal__actions">
-                    ${isRename ? '<button class="qa-name-modal__btn qa-name-modal__btn--cancel" type="button">Cancel</button>' : ''}
+                    ${isSwitch ? '<button class="qa-name-modal__btn qa-name-modal__btn--cancel" type="button">Cancel</button>' : ''}
                     <button class="qa-name-modal__btn qa-name-modal__btn--ok" type="button"></button>
                 </div>
             </div>
         `;
         modal.querySelector('.qa-name-modal__title').textContent =
-            isRename ? 'Change Name' : 'Welcome, QA Tester';
+            isSwitch ? 'Switch Role' : 'Welcome to QA';
         modal.querySelector('.qa-name-modal__sub').textContent =
-            isRename
-                ? 'Update your name. Existing comments keep their old author.'
-                : 'Enter your name so each comment is tagged with who wrote it.';
+            isSwitch
+                ? 'Pick a different role. Existing comments keep their original author.'
+                : 'Tell us who you are. "Other" needs no password.';
         modal.querySelector('.qa-name-modal__btn--ok').textContent =
-            isRename ? 'Save' : 'Start';
+            isSwitch ? 'Switch' : 'Continue';
 
         document.body.appendChild(modal);
 
-        const input    = modal.querySelector('.qa-name-modal__input');
-        const okBtn    = modal.querySelector('.qa-name-modal__btn--ok');
-        const cancelBtn = modal.querySelector('.qa-name-modal__btn--cancel');
+        const nameInput  = modal.querySelector('.qa-name-modal__input--name');
+        const roleInput  = modal.querySelector('.qa-name-modal__input--role');
+        const pwField    = modal.querySelector('.qa-name-modal__field--password');
+        const pwInput    = modal.querySelector('.qa-name-modal__input--password');
+        const errBox     = modal.querySelector('.qa-name-modal__error');
+        const okBtn      = modal.querySelector('.qa-name-modal__btn--ok');
+        const cancelBtn  = modal.querySelector('.qa-name-modal__btn--cancel');
 
-        input.value = initialName;
+        nameInput.value = initialName;
+        if (initialRole) roleInput.value = initialRole;
 
-        function submit() {
-            const name = input.value.trim();
+        function refreshPasswordVisibility() {
+            const showPw = roleInput.value === 'owner' || roleInput.value === 'qa';
+            pwField.hidden = !showPw;
+            if (!showPw) pwInput.value = '';
+        }
+        refreshPasswordVisibility();
+        roleInput.addEventListener('change', refreshPasswordVisibility);
+
+        function showErr(msg) {
+            errBox.textContent = msg;
+            errBox.hidden = false;
+        }
+        function clearErr() {
+            errBox.hidden = true;
+            errBox.textContent = '';
+        }
+
+        async function submit() {
+            clearErr();
+            const name = nameInput.value.trim();
+            const role = roleInput.value;
             if (!name) {
-                input.classList.add('qa-name-modal__input--err');
-                input.focus();
+                nameInput.classList.add('qa-name-modal__input--err');
+                nameInput.focus();
                 return;
             }
+            nameInput.classList.remove('qa-name-modal__input--err');
+
+            if (role === 'owner' || role === 'qa') {
+                const pwd = pwInput.value;
+                if (!pwd) {
+                    pwInput.classList.add('qa-name-modal__input--err');
+                    pwInput.focus();
+                    return;
+                }
+                okBtn.disabled = true;
+                okBtn.textContent = 'Verifying…';
+                const verifiedRole = await verifyPassword(pwd);
+                okBtn.disabled = false;
+                okBtn.textContent = isSwitch ? 'Switch' : 'Continue';
+                if (!verifiedRole) {
+                    showErr('Password didn’t match. Try again.');
+                    pwInput.classList.add('qa-name-modal__input--err');
+                    pwInput.focus();
+                    pwInput.select();
+                    return;
+                }
+                if (verifiedRole !== role) {
+                    showErr(`That password is the ${verifiedRole.toUpperCase()} password, not ${role.toUpperCase()}. Continuing as ${verifiedRole.toUpperCase()}.`);
+                    // Fall through with the actual role.
+                }
+                setPassword(pwd);
+                modal.remove();
+                resolve({ name, role: verifiedRole });
+                return;
+            }
+
+            // "Other" — no password, just save name + role.
+            setPassword('');
             modal.remove();
-            resolve(name);
+            resolve({ name, role: 'other' });
         }
+
         function cancel() {
             modal.remove();
             resolve(null);
@@ -118,14 +201,15 @@ function showNameModal({ initialName = '', isRename = false } = {}) {
         okBtn.addEventListener('click', submit);
         if (cancelBtn) cancelBtn.addEventListener('click', cancel);
 
-        input.addEventListener('input', () => input.classList.remove('qa-name-modal__input--err'));
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') submit();
-            if (e.key === 'Escape' && isRename) cancel();
+        [nameInput, pwInput].forEach((el) => {
+            el.addEventListener('input', () => el.classList.remove('qa-name-modal__input--err'));
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') submit();
+                if (e.key === 'Escape' && isSwitch) cancel();
+            });
         });
 
-        // Focus + select after the paint so the input is ready for typing.
-        setTimeout(() => { input.focus(); input.select(); }, 50);
+        setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
     });
 }
 
@@ -215,6 +299,20 @@ async function init() {
         return false;
     }
 
+    // Open an existing comment's popup with permission-aware UI.
+    function openExistingComment(c) {
+        const editable = canEditComment(c);
+        popup.open({
+            x: c.x,
+            y: c.y,
+            selector: c.selector,
+            existingText: c.text,
+            editId: c.id,
+            readOnly: !editable,
+            byline: `${c.author || 'Unknown'} · ${new Date(c.createdAt).toLocaleString()}`,
+        });
+    }
+
     // ── Pins ────────────────────────────────────────────────────────
     function renderPins() {
         pinsContainer.innerHTML = '';
@@ -229,13 +327,7 @@ async function init() {
             pin.title = c.text;
             pin.addEventListener('click', (e) => {
                 e.stopPropagation();
-                popup.open({
-                    x: c.x,
-                    y: c.y,
-                    selector: c.selector,
-                    existingText: c.text,
-                    editId: c.id,
-                });
+                openExistingComment(c);
             });
             pinsContainer.appendChild(pin);
         });
@@ -268,13 +360,7 @@ async function init() {
             const c = findCommentById(id);
             if (!c) return;
             flashPin(id);
-            popup.open({
-                x: c.x,
-                y: c.y,
-                selector: c.selector,
-                existingText: c.text,
-                editId: c.id,
-            });
+            openExistingComment(c);
         },
         onDelete: async (id) => {
             await deleteComment(id);
@@ -283,11 +369,18 @@ async function init() {
             popup.close();
         },
         onInspectToggle: setInterceptEnabled,
-        onRenameAuthor: async () => {
-            const newName = await showNameModal({ initialName: getAuthor(), isRename: true });
-            if (newName) {
-                setAuthor(newName);
-                sidebar.setAuthor(newName);
+        onSwitchRole: async () => {
+            const result = await showRoleModal({
+                initialName: getAuthor(),
+                initialRole: getRole(),
+                isSwitch: true,
+            });
+            if (result) {
+                setAuthor(result.name);
+                setRole(result.role);
+                sidebar.setIdentity({ name: result.name, role: result.role });
+                renderPins();
+                sidebar.render(currentScreen);
             }
         },
     });
@@ -298,13 +391,16 @@ async function init() {
 
     renderPins();
     sidebar.render(currentScreen);
-    sidebar.setAuthor(getAuthor() || '—');
+    sidebar.setIdentity({ name: getAuthor() || '—', role: getRole() || '' });
 
-    // First-time tester: collect their name so every new comment is tagged.
-    if (!getAuthor()) {
-        showNameModal().then((name) => {
-            setAuthor(name);
-            sidebar.setAuthor(name);
+    // First-time tester: collect name + role (+ password for Owner/QA) so every
+    // new comment is tagged and so privileged actions can be authorised.
+    if (!getAuthor() || !getRole()) {
+        showRoleModal().then((result) => {
+            if (!result) return;
+            setAuthor(result.name);
+            setRole(result.role);
+            sidebar.setIdentity({ name: result.name, role: result.role });
         });
     }
 

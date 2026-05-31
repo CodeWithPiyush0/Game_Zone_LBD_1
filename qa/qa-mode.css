@@ -122,6 +122,25 @@ body[data-qa="true"] .qa-hovered {
 .qa-btn--save   { background: #ff7a00; color: #fff; font-weight: 600; }
 .qa-btn--save:hover { background: #e36a00; }
 
+/* Read-only popup — when viewing someone else's comment without permission */
+.qa-popup__byline {
+    font-size: 11px;
+    color: #888;
+    margin-top: -4px;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+.qa-popup--readonly .qa-popup__text {
+    background: #fafafa;
+    color: #333;
+    cursor: default;
+}
+.qa-popup--readonly .qa-popup__text:focus {
+    outline: none;
+    border-color: #ddd;
+    box-shadow: none;
+}
+
 /* ── Pins ────────────────────────────────────────────────────────── */
 .qa-pins {
     position: fixed;
@@ -364,6 +383,20 @@ body[data-qa="true"] .qa-hovered {
     border-color: #ff7a00;
 }
 
+/* Role tag in the footer — colored pill that hints at the active role. */
+.qa-sidebar__role-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 8px;
+    line-height: 1.4;
+}
+.qa-role-tag--owner { background: #ff7a00; color: #fff; }
+.qa-role-tag--qa    { background: #1f8fff; color: #fff; }
+.qa-role-tag--other { background: #d4d4d4; color: #333; }
+
 /* ── Name modal (initial prompt + rename) ───────────────────────── */
 .qa-name-modal {
     position: fixed;
@@ -428,6 +461,36 @@ body[data-qa="true"] .qa-hovered {
     border-color: #e34;
     box-shadow: 0 0 0 3px rgba(238, 68, 68, 0.18);
 }
+.qa-name-modal__field {
+    display: block;
+    text-align: left;
+    margin-bottom: 12px;
+}
+.qa-name-modal__field[hidden] { display: none; }
+.qa-name-modal__label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+.qa-name-modal__input--role {
+    cursor: pointer;
+    background-color: #fff;
+}
+.qa-name-modal__error {
+    text-align: left;
+    background: #fff1ed;
+    color: #b8401a;
+    border: 1px solid #ffc7b3;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+.qa-name-modal__error[hidden] { display: none; }
 .qa-name-modal__actions {
     margin-top: 16px;
     display: flex;

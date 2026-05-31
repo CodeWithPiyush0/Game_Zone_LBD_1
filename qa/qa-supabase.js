@@ -1,9 +1,13 @@
 // Supabase client + thin CRUD wrappers for QA comments.
-// Loaded as an ES module via esm.sh — no bundler needed.
+// Reads/inserts go directly against the table (allowed by RLS).
+// Updates/deletes route through the qa-action Edge Function, which validates
+// either the Owner/QA password or the author for self-actions before writing.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL  = 'https://ttxdyyrsyctnqoymytgb.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_KoUbyZ1vZnpuvucWRYJVHQ_A1wG4vmY';
+
+export const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/qa-action`;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -25,6 +29,7 @@ function rowToComment(row) {
     };
 }
 
+// ── Reads + inserts (direct, RLS-controlled) ────────────────────────
 export async function fetchComments({ page, screen } = {}) {
     let q = supabase
         .from('qa_comments')
@@ -53,28 +58,51 @@ export async function insertComment({ selector, x, y, text, page, screen, author
     return rowToComment(data);
 }
 
-export async function updateCommentRow(id, patch) {
-    const { data, error } = await supabase
-        .from('qa_comments')
-        .update(patch)
-        .eq('id', id)
-        .select()
-        .single();
-    if (error) {
-        console.error('[QA] updateComment failed', error);
-        return null;
+// ── Privileged mutations (via Edge Function) ────────────────────────
+async function invokeQAAction(body) {
+    try {
+        const res = await fetch(EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+        if (!res.ok) {
+            console.warn('[QA] action rejected:', data?.error || res.statusText);
+            return { ok: false, status: res.status, error: data?.error };
+        }
+        return { ok: true, data };
+    } catch (err) {
+        console.error('[QA] Edge function call failed', err);
+        return { ok: false, error: err.message };
     }
-    return data ? rowToComment(data) : null;
 }
 
-export async function deleteCommentRow(id) {
-    const { error } = await supabase
-        .from('qa_comments')
-        .delete()
-        .eq('id', id);
-    if (error) {
-        console.error('[QA] deleteComment failed', error);
-        return false;
-    }
-    return true;
+export async function verifyPassword(password) {
+    const result = await invokeQAAction({ password, action: 'verify' });
+    if (result.ok && result.data?.role) return result.data.role;
+    return null;
+}
+
+export async function updateCommentRow(id, patch, { password, author } = {}) {
+    const result = await invokeQAAction({
+        password,
+        author,
+        action:  'update_comment',
+        payload: { id, ...patch },
+    });
+    if (!result.ok) return null;
+    return result.data?.row ? rowToComment(result.data.row) : null;
+}
+
+export async function deleteCommentRow(id, { password, author } = {}) {
+    const result = await invokeQAAction({
+        password,
+        author,
+        action:  'delete_comment',
+        payload: { id },
+    });
+    return result.ok;
 }

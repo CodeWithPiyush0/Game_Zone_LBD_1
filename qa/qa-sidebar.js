@@ -1,8 +1,7 @@
-// QA sidebar — collapsible list of comments for the current page.
-// Calls onItemClick(id) when an item (not its delete button) is clicked.
-// Calls onDelete(id) when the delete button is clicked.
+// QA sidebar — collapsible list of comments for the current screen.
+// Hosts: comment-mode toggle, per-item view/delete, footer with identity + role-switch.
 
-import { getCommentsForCurrentScreen } from './qa-storage.js';
+import { getCommentsForCurrentScreen, canEditComment } from './qa-storage.js';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(ts) {
@@ -11,7 +10,9 @@ function fmtDate(ts) {
     return `${d.getDate()} ${MONTHS[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, onRenameAuthor }) {
+const ROLE_LABEL = { owner: 'Owner', qa: 'QA', other: 'Other' };
+
+export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, onSwitchRole }) {
     let sidebarEl = null;
     let collapsed = false;
     let inspectOn = false;
@@ -33,7 +34,8 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
             <div class="qa-sidebar__footer">
                 <span class="qa-sidebar__footer-label">Tester:</span>
                 <strong class="qa-sidebar__author">—</strong>
-                <button class="qa-sidebar__rename" type="button" title="Change name" aria-label="Change name">✎</button>
+                <span class="qa-sidebar__role-tag" hidden>—</span>
+                <button class="qa-sidebar__rename" type="button" title="Switch role" aria-label="Switch role">↺</button>
             </div>
         `;
         document.body.appendChild(sidebarEl);
@@ -54,20 +56,31 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
         });
 
         sidebarEl.querySelector('.qa-sidebar__rename').addEventListener('click', () => {
-            if (typeof onRenameAuthor === 'function') onRenameAuthor();
+            if (typeof onSwitchRole === 'function') onSwitchRole();
         });
     }
 
-    function setAuthor(name) {
+    function setIdentity({ name, role } = {}) {
         if (!sidebarEl) build();
-        const el = sidebarEl.querySelector('.qa-sidebar__author');
-        if (el) el.textContent = name || '—';
+        const nameEl = sidebarEl.querySelector('.qa-sidebar__author');
+        const roleEl = sidebarEl.querySelector('.qa-sidebar__role-tag');
+        if (nameEl) nameEl.textContent = name || '—';
+        if (roleEl) {
+            const label = ROLE_LABEL[role];
+            if (label) {
+                roleEl.textContent = label;
+                roleEl.hidden = false;
+                roleEl.classList.remove('qa-role-tag--owner', 'qa-role-tag--qa', 'qa-role-tag--other');
+                roleEl.classList.add(`qa-role-tag--${role}`);
+            } else {
+                roleEl.hidden = true;
+            }
+        }
     }
 
     function render(screen) {
         if (!sidebarEl) build();
 
-        // Header label tracks the current screen so QA knows what they're commenting on.
         const screenEl = sidebarEl.querySelector('.qa-sidebar__screen');
         if (screenEl) screenEl.textContent = screen || '—';
 
@@ -79,13 +92,14 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
         empty.style.display = items.length ? 'none' : 'block';
 
         items.forEach((c, idx) => {
+            const editable = canEditComment(c);
             const li = document.createElement('li');
             li.className = 'qa-sidebar__item';
             li.dataset.id = c.id;
             li.innerHTML = `
                 <div class="qa-sidebar__row">
                     <span class="qa-sidebar__num">${idx + 1}</span>
-                    <button class="qa-sidebar__del" type="button" title="Delete">×</button>
+                    ${editable ? '<button class="qa-sidebar__del" type="button" title="Delete">×</button>' : ''}
                 </div>
                 <div class="qa-sidebar__text"></div>
                 <div class="qa-sidebar__meta"></div>
@@ -94,10 +108,13 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
             li.querySelector('.qa-sidebar__meta').textContent =
                 `${c.author || 'Unknown'} · ${fmtDate(c.createdAt)}`;
 
-            li.querySelector('.qa-sidebar__del').addEventListener('click', (e) => {
-                e.stopPropagation();
-                onDelete(c.id);
-            });
+            const delBtn = li.querySelector('.qa-sidebar__del');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    onDelete(c.id);
+                });
+            }
             li.addEventListener('click', () => onItemClick(c.id));
 
             list.appendChild(li);
@@ -113,5 +130,5 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
         sidebarEl = null;
     }
 
-    return { render, isInside, destroy, setAuthor };
+    return { render, isInside, destroy, setIdentity };
 }
