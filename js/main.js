@@ -26,7 +26,7 @@ class GameApp {
 
         // Looping background music — kicked off inside the Play click handler
         // so it counts as a user gesture and the browser actually plays it.
-        const bgMusic = new Audio('assets/sounds/BG_Music2.mp3');
+        const bgMusic = new Audio('assets/sounds/BG_Music3.mp3');
         bgMusic.loop = true;
         bgMusic.volume = 0.40;
         bgMusic.playbackRate = 0.85;
