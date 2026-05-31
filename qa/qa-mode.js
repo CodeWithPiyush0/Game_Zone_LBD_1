@@ -17,8 +17,11 @@ import {
     isPowerRole,
     canEditComment,
     canChangeStatus,
+    canReply,
     verifyPassword,
     refreshComments,
+    hasSavedPassword,
+    getReplies,
 } from './qa-storage.js';
 import { createPopupModule } from './qa-popup.js';
 import { createSidebarModule } from './qa-sidebar.js';
@@ -72,6 +75,62 @@ function injectStylesheet() {
     link.rel = 'stylesheet';
     link.href = 'qa/qa-mode.css';
     document.head.appendChild(link);
+}
+
+// Lightweight transient toast — used for action failures + diagnostics.
+let toastTimer = null;
+function showToast(message, type = 'info', duration = 3500) {
+    const existing = document.querySelector('.qa-toast');
+    if (existing) { clearTimeout(toastTimer); existing.remove(); }
+    const t = document.createElement('div');
+    t.className = `qa-toast qa-toast--${type}`;
+    t.textContent = message;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('qa-toast--show'));
+    toastTimer = setTimeout(() => {
+        t.classList.remove('qa-toast--show');
+        setTimeout(() => t.remove(), 220);
+    }, duration);
+}
+
+// Confirm modal — resolves true on confirm, false on cancel/Escape.
+function confirmAction({ title, message, confirmLabel = 'Confirm', destructive = false }) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'qa-name-modal qa-confirm-modal';
+        modal.innerHTML = `
+            <div class="qa-name-modal__card" role="dialog" aria-modal="true">
+                <h3 class="qa-name-modal__title"></h3>
+                <p class="qa-name-modal__sub"></p>
+                <div class="qa-name-modal__actions">
+                    <button class="qa-name-modal__btn qa-name-modal__btn--cancel" type="button">Cancel</button>
+                    <button class="qa-name-modal__btn ${destructive ? 'qa-name-modal__btn--danger' : 'qa-name-modal__btn--ok'}" type="button"></button>
+                </div>
+            </div>
+        `;
+        modal.querySelector('.qa-name-modal__title').textContent = title;
+        modal.querySelector('.qa-name-modal__sub').textContent = message;
+        const confirmBtn = modal.querySelector(destructive ? '.qa-name-modal__btn--danger' : '.qa-name-modal__btn--ok');
+        const cancelBtn  = modal.querySelector('.qa-name-modal__btn--cancel');
+        confirmBtn.textContent = confirmLabel;
+
+        document.body.appendChild(modal);
+
+        const finish = (result) => {
+            document.removeEventListener('keydown', onKey, true);
+            modal.remove();
+            resolve(result);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); finish(false); }
+            if (e.key === 'Enter')  { e.stopPropagation(); finish(true); }
+        };
+        document.addEventListener('keydown', onKey, true);
+
+        confirmBtn.addEventListener('click', () => finish(true));
+        cancelBtn.addEventListener('click', () => finish(false));
+        setTimeout(() => confirmBtn.focus(), 50);
+    });
 }
 
 // Centered modal that collects the QA tester's name + role + (for power roles)
@@ -299,17 +358,111 @@ async function init() {
         return false;
     }
 
-    // Open an existing comment's popup with permission-aware UI.
+    // Open the popup for an existing comment with full permission-aware UI
+    // (status pill, reply thread, delete button, conditional read-only mode).
     function openExistingComment(c) {
-        const editable = canEditComment(c);
+        const editable    = canEditComment(c);
+        const statusOK    = canChangeStatus();
+        const replyOK     = canReply();
+        const canDelReply = (r) => canEditComment(r);
+
+        const replyHandlers = {
+            canReply: replyOK,
+            canDeleteReply: canDelReply,
+            onReply: async (text) => {
+                const newReply = await addComment({
+                    selector: c.selector, x: c.x, y: c.y, text,
+                    screen: c.screen, parentId: c.id,
+                });
+                if (!newReply) { showToast('Reply failed', 'error'); return; }
+                popup.refreshReplies({ replies: getReplies(c.id), ...replyHandlers });
+                sidebar.render(currentScreen);
+            },
+            onReplyDelete: async (replyId) => {
+                const ok = await confirmAction({
+                    title: 'Delete reply?',
+                    message: 'This cannot be undone.',
+                    confirmLabel: 'Delete',
+                    destructive: true,
+                });
+                if (!ok) return;
+                const result = await deleteComment(replyId);
+                if (!result.ok) { showToast(result.error || 'Delete failed', 'error'); return; }
+                popup.refreshReplies({ replies: getReplies(c.id), ...replyHandlers });
+                sidebar.render(currentScreen);
+            },
+        };
+
         popup.open({
-            x: c.x,
-            y: c.y,
+            x: c.x, y: c.y,
             selector: c.selector,
-            existingText: c.text,
-            editId: c.id,
+            isNew: false,
+            text: c.text,
             readOnly: !editable,
+            canDelete: editable,
+            status: c.status || 'open',
+            canChangeStatus: statusOK,
             byline: `${c.author || 'Unknown'} · ${new Date(c.createdAt).toLocaleString()}`,
+            replies: getReplies(c.id),
+            ...replyHandlers,
+
+            onSave: async (text) => {
+                const result = await updateComment(c.id, { text });
+                if (!result.ok) { showToast(result.error || 'Update failed', 'error'); return; }
+                renderPins();
+                sidebar.render(currentScreen);
+            },
+            onDelete: async () => {
+                const ok = await confirmAction({
+                    title: 'Delete comment?',
+                    message: 'This will permanently remove the comment and all its replies.',
+                    confirmLabel: 'Delete',
+                    destructive: true,
+                });
+                if (!ok) return;
+                const result = await deleteComment(c.id);
+                if (!result.ok) {
+                    const hint = (result.error && /authoris/i.test(result.error))
+                        ? `${result.error}. If you rotated the password, hit ↺ to re-authenticate.`
+                        : (result.error || 'Delete failed');
+                    showToast(hint, 'error', 5500);
+                    return;
+                }
+                popup.close();
+                renderPins();
+                sidebar.render(currentScreen);
+            },
+            onStatusChange: async (newStatus) => {
+                const result = await updateComment(c.id, { status: newStatus });
+                if (!result.ok) {
+                    showToast(result.error || 'Status change failed', 'error');
+                    return;
+                }
+                renderPins();
+                sidebar.render(currentScreen);
+            },
+        });
+    }
+
+    // Open the popup for a new comment (no status, no replies, just text).
+    function openNewComment(x, y, selectorStr) {
+        popup.open({
+            x, y,
+            selector: selectorStr,
+            isNew: true,
+            text: '',
+            readOnly: false,
+            canDelete: false,
+            replies: [],
+            canReply: false,
+            onSave: async (text) => {
+                const created = await addComment({
+                    selector: selectorStr, x, y, text, screen: currentScreen,
+                });
+                if (!created) { showToast('Save failed', 'error'); return; }
+                renderPins();
+                sidebar.render(currentScreen);
+            },
         });
     }
 
@@ -317,8 +470,9 @@ async function init() {
     function renderPins() {
         pinsContainer.innerHTML = '';
         getCommentsForCurrentScreen(currentScreen).forEach((c, idx) => {
+            const status = c.status || 'open';
             const pin = document.createElement('button');
-            pin.className = 'qa-pin';
+            pin.className = `qa-pin qa-pin--status-${status}`;
             pin.type = 'button';
             pin.dataset.id = c.id;
             pin.style.left = c.x + 'px';
@@ -342,18 +496,7 @@ async function init() {
     }
 
     // ── Wire popup + sidebar ────────────────────────────────────────
-    popup = createPopupModule({
-        onSave: async ({ selector, x, y, text, editId }) => {
-            if (editId) {
-                await updateComment(editId, { text });
-            } else {
-                // Tag the new comment with whichever screen is detected right now.
-                await addComment({ selector, x, y, text, screen: currentScreen });
-            }
-            renderPins();
-            sidebar.render(currentScreen);
-        },
-    });
+    popup = createPopupModule();
 
     sidebar = createSidebarModule({
         onItemClick: (id) => {
@@ -363,7 +506,21 @@ async function init() {
             openExistingComment(c);
         },
         onDelete: async (id) => {
-            await deleteComment(id);
+            const ok = await confirmAction({
+                title: 'Delete comment?',
+                message: 'This will permanently remove the comment and all its replies.',
+                confirmLabel: 'Delete',
+                destructive: true,
+            });
+            if (!ok) return;
+            const result = await deleteComment(id);
+            if (!result.ok) {
+                const hint = (result.error && /authoris/i.test(result.error))
+                    ? `${result.error}. If you rotated the password, hit ↺ to re-authenticate.`
+                    : (result.error || 'Delete failed');
+                showToast(hint, 'error', 5500);
+                return;
+            }
             renderPins();
             sidebar.render(currentScreen);
             popup.close();
@@ -393,14 +550,24 @@ async function init() {
     sidebar.render(currentScreen);
     sidebar.setIdentity({ name: getAuthor() || '—', role: getRole() || '' });
 
-    // First-time tester: collect name + role (+ password for Owner/QA) so every
-    // new comment is tagged and so privileged actions can be authorised.
-    if (!getAuthor() || !getRole()) {
-        showRoleModal().then((result) => {
+    // First-time tester OR power role with no saved password (e.g. password
+    // was rotated, or localStorage was cleared) → re-collect identity.
+    const needsAuth =
+        !getAuthor() ||
+        !getRole() ||
+        (isPowerRole(getRole()) && !hasSavedPassword());
+    if (needsAuth) {
+        showRoleModal({
+            initialName: getAuthor(),
+            initialRole: getRole(),
+            isSwitch: !!getAuthor(),
+        }).then((result) => {
             if (!result) return;
             setAuthor(result.name);
             setRole(result.role);
             sidebar.setIdentity({ name: result.name, role: result.role });
+            renderPins();
+            sidebar.render(currentScreen);
         });
     }
 
@@ -445,11 +612,7 @@ async function init() {
             if (DRAG_INITIATORS.has(evt)) e.preventDefault();
 
             if (evt === 'click') {
-                popup.open({
-                    x: e.clientX,
-                    y: e.clientY,
-                    selector: bestSelector(e.target),
-                });
+                openNewComment(e.clientX, e.clientY, bestSelector(e.target));
             }
         }, { capture: true, passive: false }); // capture + active so preventDefault works on touch events
     });

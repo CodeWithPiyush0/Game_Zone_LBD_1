@@ -1,5 +1,5 @@
-// QA sidebar — collapsible list of comments for the current screen.
-// Hosts: comment-mode toggle, per-item view/delete, footer with identity + role-switch.
+// QA sidebar — collapsible list of comments for the current screen,
+// with a status filter and per-item status badge.
 
 import { getCommentsForCurrentScreen, canEditComment } from './qa-storage.js';
 
@@ -11,11 +11,17 @@ function fmtDate(ts) {
 }
 
 const ROLE_LABEL = { owner: 'Owner', qa: 'QA', other: 'Other' };
+const STATUS_LABEL = {
+    open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', wontfix: "Won't Fix",
+};
+const STATUS_OPTIONS = ['all', 'open', 'in_progress', 'resolved', 'wontfix'];
 
 export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, onSwitchRole }) {
     let sidebarEl = null;
     let collapsed = false;
     let inspectOn = false;
+    let statusFilter = 'all';
+    let lastScreen = null;
 
     function build() {
         sidebarEl = document.createElement('div');
@@ -29,6 +35,16 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
                 </div>
             </div>
             <div class="qa-sidebar__hint">Press "+ Comment", then click any element. Toggle off to keep playing.</div>
+            <div class="qa-sidebar__filter">
+                <label class="qa-sidebar__filter-label">Filter:</label>
+                <select class="qa-sidebar__filter-select">
+                    <option value="all">All</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="wontfix">Won't Fix</option>
+                </select>
+            </div>
             <ul class="qa-sidebar__list"></ul>
             <div class="qa-sidebar__empty">No comments on this screen yet.</div>
             <div class="qa-sidebar__footer">
@@ -58,6 +74,11 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
         sidebarEl.querySelector('.qa-sidebar__rename').addEventListener('click', () => {
             if (typeof onSwitchRole === 'function') onSwitchRole();
         });
+
+        sidebarEl.querySelector('.qa-sidebar__filter-select').addEventListener('change', (e) => {
+            statusFilter = e.target.value;
+            if (lastScreen) render(lastScreen);
+        });
     }
 
     function setIdentity({ name, role } = {}) {
@@ -80,25 +101,34 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
 
     function render(screen) {
         if (!sidebarEl) build();
+        lastScreen = screen;
 
         const screenEl = sidebarEl.querySelector('.qa-sidebar__screen');
         if (screenEl) screenEl.textContent = screen || '—';
 
         const list  = sidebarEl.querySelector('.qa-sidebar__list');
         const empty = sidebarEl.querySelector('.qa-sidebar__empty');
-        const items = screen ? getCommentsForCurrentScreen(screen) : [];
+        const allItems = screen ? getCommentsForCurrentScreen(screen) : [];
+        const items = statusFilter === 'all'
+            ? allItems
+            : allItems.filter(c => (c.status || 'open') === statusFilter);
 
         list.innerHTML = '';
         empty.style.display = items.length ? 'none' : 'block';
+        empty.textContent = allItems.length === 0
+            ? 'No comments on this screen yet.'
+            : `No ${STATUS_LABEL[statusFilter] || ''} comments on this screen.`;
 
         items.forEach((c, idx) => {
             const editable = canEditComment(c);
+            const status = c.status || 'open';
             const li = document.createElement('li');
-            li.className = 'qa-sidebar__item';
+            li.className = `qa-sidebar__item qa-sidebar__item--status-${status}`;
             li.dataset.id = c.id;
             li.innerHTML = `
                 <div class="qa-sidebar__row">
                     <span class="qa-sidebar__num">${idx + 1}</span>
+                    <span class="qa-sidebar__status-dot qa-sidebar__status-dot--${status}" title="${STATUS_LABEL[status]}"></span>
                     ${editable ? '<button class="qa-sidebar__del" type="button" title="Delete">×</button>' : ''}
                 </div>
                 <div class="qa-sidebar__text"></div>

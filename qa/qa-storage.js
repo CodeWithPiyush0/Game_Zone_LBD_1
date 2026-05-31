@@ -14,45 +14,38 @@ import {
     verifyPassword,
 } from './qa-supabase.js';
 
-// localStorage keys
 const AUTHOR_KEY    = 'qa-author-name';
-const ROLE_KEY      = 'qa-role';      // 'owner' | 'qa' | 'other'
-const PASSWORD_KEY  = 'qa-password';  // raw password for power roles (used to sign privileged calls)
+const ROLE_KEY      = 'qa-role';
+const PASSWORD_KEY  = 'qa-password';
 
 // ── Author identity ─────────────────────────────────────────────────
 export function getAuthor() {
     try { return localStorage.getItem(AUTHOR_KEY) || ''; } catch { return ''; }
 }
-
 export function setAuthor(name) {
-    try {
-        if (name) localStorage.setItem(AUTHOR_KEY, name);
-        else      localStorage.removeItem(AUTHOR_KEY);
-    } catch (e) { console.warn('[QA] cannot save author', e); }
+    try { name ? localStorage.setItem(AUTHOR_KEY, name) : localStorage.removeItem(AUTHOR_KEY); }
+    catch (e) { console.warn('[QA] cannot save author', e); }
 }
 
 // ── Role identity ───────────────────────────────────────────────────
 export function getRole() {
     try { return localStorage.getItem(ROLE_KEY) || ''; } catch { return ''; }
 }
-
 export function setRole(role) {
-    try {
-        if (role) localStorage.setItem(ROLE_KEY, role);
-        else      localStorage.removeItem(ROLE_KEY);
-    } catch (e) { console.warn('[QA] cannot save role', e); }
+    try { role ? localStorage.setItem(ROLE_KEY, role) : localStorage.removeItem(ROLE_KEY); }
+    catch (e) { console.warn('[QA] cannot save role', e); }
 }
 
 // ── Password (Owner/QA only) ────────────────────────────────────────
 function getPassword() {
     try { return localStorage.getItem(PASSWORD_KEY) || ''; } catch { return ''; }
 }
-
 export function setPassword(pwd) {
-    try {
-        if (pwd) localStorage.setItem(PASSWORD_KEY, pwd);
-        else     localStorage.removeItem(PASSWORD_KEY);
-    } catch (e) { console.warn('[QA] cannot save password', e); }
+    try { pwd ? localStorage.setItem(PASSWORD_KEY, pwd) : localStorage.removeItem(PASSWORD_KEY); }
+    catch (e) { console.warn('[QA] cannot save password', e); }
+}
+export function hasSavedPassword() {
+    return !!getPassword();
 }
 
 export function clearSession() {
@@ -63,22 +56,19 @@ export function clearSession() {
 
 export const isPowerRole = (role) => role === 'owner' || role === 'qa';
 
-// Re-export verifyPassword so the modal can call it directly.
 export { verifyPassword };
 
 // ── Permission helpers ──────────────────────────────────────────────
-// Can the current session edit / delete this comment?
-//   • Owner & QA: anything
-//   • Other: only their own (matching author)
 export function canEditComment(comment) {
     const role = getRole();
     if (isPowerRole(role)) return true;
     return comment && comment.author === getAuthor();
 }
-
-// Status changes are restricted to Owner/QA regardless of authorship.
 export function canChangeStatus() {
     return isPowerRole(getRole());
+}
+export function canReply() {
+    return !!getAuthor(); // anyone with a name can reply
 }
 
 // ── Comment cache + Supabase sync ───────────────────────────────────
@@ -89,47 +79,56 @@ export async function refreshComments() {
     return cachedComments;
 }
 
+// Top-level comments only — replies are nested.
 export function getCommentsForCurrentScreen(screen) {
-    return cachedComments.filter(c => c.screen === screen);
+    return cachedComments.filter(c => c.screen === screen && !c.parentId);
 }
 
 export function findCommentById(id) {
     return cachedComments.find(c => c.id === id) || null;
 }
 
-export async function addComment({ selector, x, y, text, screen }) {
+export function getReplies(commentId) {
+    return cachedComments
+        .filter(c => c.parentId === commentId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function addComment({ selector, x, y, text, screen, parentId }) {
     const entry = await insertComment({
-        selector,
-        x,
-        y,
-        text,
-        page: location.pathname,
+        selector, x, y, text,
+        page:   location.pathname,
         screen: screen || 'Other',
         author: getAuthor() || 'Anonymous',
+        parentId,
     });
     if (entry) cachedComments.push(entry);
     return entry;
 }
 
-// Updates go through the Edge Function, carrying either the Owner/QA password
-// or the current author (for self-edits).
+// Privileged mutations now return { ok, error?, row? } so callers can show a toast.
 export async function updateComment(id, patch) {
-    const updated = await updateCommentRow(id, patch, {
-        password: isPowerRole(getRole()) ? getPassword() : undefined,
+    const role = getRole();
+    const result = await updateCommentRow(id, patch, {
+        password: isPowerRole(role) ? getPassword() : undefined,
         author:   getAuthor() || undefined,
     });
-    if (updated) {
+    if (result.ok && result.row) {
         const idx = cachedComments.findIndex(c => c.id === id);
-        if (idx !== -1) cachedComments[idx] = updated;
+        if (idx !== -1) cachedComments[idx] = result.row;
     }
-    return updated;
+    return result;
 }
 
 export async function deleteComment(id) {
-    const ok = await deleteCommentRow(id, {
-        password: isPowerRole(getRole()) ? getPassword() : undefined,
+    const role = getRole();
+    const result = await deleteCommentRow(id, {
+        password: isPowerRole(role) ? getPassword() : undefined,
         author:   getAuthor() || undefined,
     });
-    if (ok) cachedComments = cachedComments.filter(c => c.id !== id);
-    return ok;
+    if (result.ok) {
+        // Also drop any cached replies tied to this comment.
+        cachedComments = cachedComments.filter(c => c.id !== id && c.parentId !== id);
+    }
+    return result;
 }

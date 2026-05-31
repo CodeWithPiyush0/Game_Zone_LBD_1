@@ -61,7 +61,9 @@ body[data-qa="true"] .qa-hovered {
 .qa-popup {
     position: fixed;
     z-index: 100000;
-    width: 280px;
+    width: 320px;
+    max-height: 80vh;
+    overflow-y: auto;
     background: #ffffff;
     color: #222;
     border-radius: 10px;
@@ -72,6 +74,14 @@ body[data-qa="true"] .qa-hovered {
     line-height: 1.4;
     box-sizing: border-box;
 }
+.qa-popup__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.qa-popup__header .qa-popup__label { flex: 1; margin-bottom: 0; }
+.qa-popup__actions-spacer { flex: 1; }
 .qa-popup__label {
     font-size: 12px;
     color: #555;
@@ -121,6 +131,114 @@ body[data-qa="true"] .qa-hovered {
 .qa-btn--cancel:hover { background: #ddd; }
 .qa-btn--save   { background: #ff7a00; color: #fff; font-weight: 600; }
 .qa-btn--save:hover { background: #e36a00; }
+.qa-btn--del    { background: #fff0ed; color: #c41010; border: 1px solid #ffb0a0; }
+.qa-btn--del:hover { background: #ffe1db; }
+.qa-btn--reply  { background: #1f8fff; color: #fff; font-weight: 600; }
+.qa-btn--reply:hover { background: #1378e0; }
+
+/* ── Status pill / select (in popup header) ─────────────────────── */
+.qa-status-pill,
+.qa-status-select {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 12px;
+    line-height: 1.3;
+    border: none;
+    cursor: default;
+    white-space: nowrap;
+}
+.qa-status-select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 22px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 8px;
+}
+.qa-status-pill--open,        .qa-status-select.qa-status-pill--open        { background: #ff7a00; color: #fff; }
+.qa-status-pill--in_progress, .qa-status-select.qa-status-pill--in_progress { background: #1f8fff; color: #fff; }
+.qa-status-pill--resolved,    .qa-status-select.qa-status-pill--resolved    { background: #1cb43a; color: #fff; }
+.qa-status-pill--wontfix,     .qa-status-select.qa-status-pill--wontfix     { background: #7a7a7a; color: #fff; }
+
+/* ── Reply thread ─────────────────────────────────────────────── */
+.qa-popup__replies {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+.qa-popup__replies-head {
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+.qa-popup__reply-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.qa-popup__reply {
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+.qa-popup__reply-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+.qa-popup__reply-meta {
+    font-size: 10px;
+    color: #888;
+}
+.qa-popup__reply-del {
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+}
+.qa-popup__reply-del:hover { color: #c41010; }
+.qa-popup__reply-text {
+    font-size: 12px;
+    color: #222;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.qa-popup__reply-input {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+.qa-popup__reply-textarea {
+    flex: 1;
+    min-height: 38px;
+    max-height: 80px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 12px;
+    resize: vertical;
+    color: #222;
+    background: #fff;
+}
+.qa-popup__reply-textarea:focus {
+    outline: none;
+    border-color: #1f8fff;
+    box-shadow: 0 0 0 2px rgba(31, 143, 255, 0.18);
+}
 
 /* Read-only popup — when viewing someone else's comment without permission */
 .qa-popup__byline {
@@ -165,11 +283,17 @@ body[data-qa="true"] .qa-hovered {
     align-items: center;
     justify-content: center;
     padding: 0;
+    transition: background 120ms ease;
 }
-.qa-pin:hover {
-    transform: translate(-50%, -50%) scale(1.12);
-    background: #ff8f24;
-}
+.qa-pin:hover { transform: translate(-50%, -50%) scale(1.12); }
+.qa-pin--status-open        { background: #ff7a00; }
+.qa-pin--status-in_progress { background: #1f8fff; }
+.qa-pin--status-resolved    { background: #1cb43a; }
+.qa-pin--status-wontfix     { background: #7a7a7a; opacity: 0.75; }
+.qa-pin--status-open:hover        { background: #ff8f24; }
+.qa-pin--status-in_progress:hover { background: #3aa0ff; }
+.qa-pin--status-resolved:hover    { background: #2ec550; }
+.qa-pin--status-wontfix:hover     { background: #8a8a8a; opacity: 1; }
 .qa-pin--focus {
     animation: qa-pin-pulse 800ms ease-out;
 }
@@ -270,12 +394,54 @@ body[data-qa="true"] .qa-hovered {
     line-height: 1;
     padding: 0;
 }
+.qa-sidebar__filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px 8px;
+    border-bottom: 1px solid #f3f3f3;
+    background: #fafafa;
+}
+.qa-sidebar__filter-label {
+    font-size: 11px;
+    color: #666;
+    font-weight: 600;
+}
+.qa-sidebar__filter-select {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font: inherit;
+    font-size: 12px;
+    background: #fff;
+    cursor: pointer;
+}
+.qa-sidebar--collapsed .qa-sidebar__filter { display: none; }
+
 .qa-sidebar__list {
     list-style: none;
     padding: 8px;
     margin: 0;
     overflow-y: auto;
     flex: 1;
+}
+/* Status dot in sidebar items */
+.qa-sidebar__status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 6px;
+}
+.qa-sidebar__status-dot--open        { background: #ff7a00; }
+.qa-sidebar__status-dot--in_progress { background: #1f8fff; }
+.qa-sidebar__status-dot--resolved    { background: #1cb43a; }
+.qa-sidebar__status-dot--wontfix     { background: #7a7a7a; }
+/* Dim resolved/wontfix items in the list */
+.qa-sidebar__item--status-resolved,
+.qa-sidebar__item--status-wontfix {
+    opacity: 0.7;
 }
 .qa-sidebar__empty {
     padding: 14px;
@@ -514,3 +680,35 @@ body[data-qa="true"] .qa-hovered {
     color: #444;
 }
 .qa-name-modal__btn--cancel:hover { background: #ddd; }
+.qa-name-modal__btn--danger {
+    background: #d23a3a;
+    color: #fff;
+}
+.qa-name-modal__btn--danger:hover { background: #b62828; }
+
+/* ── Toast (transient feedback) ─────────────────────────────────── */
+.qa-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #222;
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: 420px;
+    z-index: 100002;
+    opacity: 0;
+    transition: opacity 220ms ease, transform 220ms ease;
+    pointer-events: none;
+}
+.qa-toast--show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.qa-toast--error   { background: #b62828; }
+.qa-toast--success { background: #1cb43a; }

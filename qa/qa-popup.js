@@ -1,88 +1,283 @@
-// QA comment popup — factory that returns { open, close, isInside }.
-// open() handles both new-comment and edit-existing modes via editId.
-// When `readOnly` is true (e.g. viewing someone else's comment without
-// permission to edit), the textarea is disabled and Save is hidden.
+// QA comment popup — factory that builds a rich popup with:
+//   • main comment (editable or read-only)
+//   • status pill (read-only or dropdown for Owner/QA)
+//   • delete button (when allowed)
+//   • reply thread + reply input (when allowed)
+//
+// All behaviour is driven by params passed to open(); the caller decides
+// what's allowed.
 
-const POPUP_W = 280;
-const POPUP_H = 200;
+const POPUP_W = 320;
 
-export function createPopupModule({ onSave }) {
+const STATUS_LABELS = {
+    open:         'Open',
+    in_progress:  'In Progress',
+    resolved:     'Resolved',
+    wontfix:      "Won't Fix",
+};
+const STATUS_ORDER = ['open', 'in_progress', 'resolved', 'wontfix'];
+
+function fmtTime(ts) {
+    return new Date(ts).toLocaleString();
+}
+
+export function createPopupModule() {
     let popupEl = null;
-    let editingId = null;
+    let currentParams = null;
 
     function close() {
-        if (popupEl && popupEl.parentElement) {
-            popupEl.parentElement.removeChild(popupEl);
-        }
+        if (popupEl?.parentElement) popupEl.parentElement.removeChild(popupEl);
         popupEl = null;
-        editingId = null;
+        currentParams = null;
     }
 
-    function open({ x, y, selector, existingText, editId, readOnly = false, byline = '' }) {
-        close();
+    function build(params) {
+        const {
+            selector,
+            isNew = false,
+            text = '',
+            readOnly = false,
+            canDelete = false,
+            status = 'open',
+            canChangeStatus = false,
+            byline = '',
+            replies = [],
+            canReply = false,
+            canDeleteReply = () => false,
+            onSave,
+            onDelete,
+            onStatusChange,
+            onReply,
+            onReplyDelete,
+        } = params;
 
-        popupEl = document.createElement('div');
-        popupEl.className = 'qa-popup' + (readOnly ? ' qa-popup--readonly' : '');
-        popupEl.innerHTML = `
-            <div class="qa-popup__label">Comment on: <code></code></div>
-            ${byline ? `<div class="qa-popup__byline"></div>` : ''}
-            <textarea class="qa-popup__text" placeholder="Type your comment..."></textarea>
-            <div class="qa-popup__actions">
-                <button class="qa-btn qa-btn--cancel" type="button">${readOnly ? 'Close' : 'Cancel'}</button>
-                ${readOnly ? '' : '<button class="qa-btn qa-btn--save" type="button">Save</button>'}
-            </div>
-        `;
-        popupEl.querySelector('code').textContent = selector || '(unknown)';
+        const el = document.createElement('div');
+        el.className = 'qa-popup'
+            + (readOnly ? ' qa-popup--readonly' : '')
+            + (isNew    ? ' qa-popup--new'      : '');
+
+        // ── Header ─────────────────────────────────────────────────
+        const header = document.createElement('div');
+        header.className = 'qa-popup__header';
+
+        const label = document.createElement('div');
+        label.className = 'qa-popup__label';
+        label.innerHTML = 'Comment on: <code></code>';
+        label.querySelector('code').textContent = selector || '(unknown)';
+        header.appendChild(label);
+
+        if (!isNew) {
+            header.appendChild(buildStatusPill(status, canChangeStatus, onStatusChange));
+        }
+        el.appendChild(header);
+
+        // ── Byline (existing only) ─────────────────────────────────
         if (byline) {
-            popupEl.querySelector('.qa-popup__byline').textContent = byline;
+            const b = document.createElement('div');
+            b.className = 'qa-popup__byline';
+            b.textContent = byline;
+            el.appendChild(b);
         }
 
-        // Position near click, flipped if it would overflow the viewport.
+        // ── Comment textarea ──────────────────────────────────────
+        const ta = document.createElement('textarea');
+        ta.className = 'qa-popup__text';
+        ta.placeholder = isNew ? 'Type your comment...' : '';
+        ta.value = text;
+        if (readOnly) ta.readOnly = true;
+        el.appendChild(ta);
+
+        // ── Action buttons row ────────────────────────────────────
+        const actions = document.createElement('div');
+        actions.className = 'qa-popup__actions';
+
+        if (!isNew && canDelete) {
+            const del = document.createElement('button');
+            del.className = 'qa-btn qa-btn--del';
+            del.type = 'button';
+            del.textContent = 'Delete';
+            del.addEventListener('click', () => onDelete?.());
+            actions.appendChild(del);
+        }
+        const spacer = document.createElement('div');
+        spacer.className = 'qa-popup__actions-spacer';
+        actions.appendChild(spacer);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'qa-btn qa-btn--cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = readOnly && !isNew ? 'Close' : 'Cancel';
+        cancelBtn.addEventListener('click', close);
+        actions.appendChild(cancelBtn);
+
+        if (!readOnly) {
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'qa-btn qa-btn--save';
+            saveBtn.type = 'button';
+            saveBtn.textContent = isNew ? 'Save' : 'Update';
+            saveBtn.addEventListener('click', () => attemptSave(ta));
+            actions.appendChild(saveBtn);
+
+            ta.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') attemptSave(ta);
+            });
+        }
+        el.appendChild(actions);
+
+        // ── Replies + reply input (existing only) ─────────────────
+        if (!isNew && (replies.length > 0 || canReply)) {
+            const section = buildRepliesSection({
+                replies, canReply, canDeleteReply, onReply, onReplyDelete,
+            });
+            el.appendChild(section);
+        }
+
+        function attemptSave(textarea) {
+            const t = textarea.value.trim();
+            if (!t) { close(); return; }
+            onSave?.(t);
+            close();
+        }
+
+        return el;
+    }
+
+    function buildStatusPill(status, canChange, onStatusChange) {
+        if (!canChange) {
+            const pill = document.createElement('span');
+            pill.className = `qa-status-pill qa-status-pill--${status}`;
+            pill.textContent = STATUS_LABELS[status] || status;
+            return pill;
+        }
+        const select = document.createElement('select');
+        select.className = `qa-status-select qa-status-pill--${status}`;
+        STATUS_ORDER.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = STATUS_LABELS[s];
+            select.appendChild(opt);
+        });
+        select.value = status;
+        select.addEventListener('change', () => {
+            const next = select.value;
+            // Update the visual class immediately for snappy feedback.
+            select.className = `qa-status-select qa-status-pill--${next}`;
+            onStatusChange?.(next);
+        });
+        return select;
+    }
+
+    function buildRepliesSection({ replies, canReply, canDeleteReply, onReply, onReplyDelete }) {
+        const wrap = document.createElement('div');
+        wrap.className = 'qa-popup__replies';
+
+        if (replies.length > 0) {
+            const head = document.createElement('div');
+            head.className = 'qa-popup__replies-head';
+            head.textContent = `${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`;
+            wrap.appendChild(head);
+
+            const list = document.createElement('div');
+            list.className = 'qa-popup__reply-list';
+            replies.forEach(r => list.appendChild(buildReply(r, canDeleteReply, onReplyDelete)));
+            wrap.appendChild(list);
+        }
+
+        if (canReply) {
+            const inputWrap = document.createElement('div');
+            inputWrap.className = 'qa-popup__reply-input';
+            inputWrap.innerHTML = `
+                <textarea class="qa-popup__reply-textarea" placeholder="Write a reply..."></textarea>
+                <button class="qa-btn qa-btn--reply" type="button">Send</button>
+            `;
+            const replyTa = inputWrap.querySelector('textarea');
+            const sendBtn = inputWrap.querySelector('button');
+            const send = () => {
+                const t = replyTa.value.trim();
+                if (!t) return;
+                onReply?.(t);
+                replyTa.value = '';
+            };
+            sendBtn.addEventListener('click', send);
+            replyTa.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') send();
+            });
+            wrap.appendChild(inputWrap);
+        }
+
+        return wrap;
+    }
+
+    function buildReply(r, canDeleteReply, onReplyDelete) {
+        const item = document.createElement('div');
+        item.className = 'qa-popup__reply';
+        item.dataset.id = r.id;
+        item.innerHTML = `
+            <div class="qa-popup__reply-head">
+                <span class="qa-popup__reply-meta"></span>
+                <button class="qa-popup__reply-del" type="button" title="Delete">×</button>
+            </div>
+            <div class="qa-popup__reply-text"></div>
+        `;
+        item.querySelector('.qa-popup__reply-meta').textContent =
+            `${r.author || 'Unknown'} · ${fmtTime(r.createdAt)}`;
+        item.querySelector('.qa-popup__reply-text').textContent = r.text;
+
+        const delBtn = item.querySelector('.qa-popup__reply-del');
+        if (canDeleteReply(r)) {
+            delBtn.addEventListener('click', () => onReplyDelete?.(r.id));
+        } else {
+            delBtn.style.display = 'none';
+        }
+        return item;
+    }
+
+    function position(x, y) {
+        if (!popupEl) return;
+        const w = popupEl.offsetWidth  || POPUP_W;
+        const h = popupEl.offsetHeight || 220;
         let px = x + 12;
         let py = y + 12;
-        if (px + POPUP_W > window.innerWidth  - 8) px = x - POPUP_W - 12;
-        if (py + POPUP_H > window.innerHeight - 8) py = y - POPUP_H - 12;
+        if (px + w > window.innerWidth  - 8) px = x - w - 12;
+        if (py + h > window.innerHeight - 8) py = Math.max(8, window.innerHeight - h - 8);
         if (px < 8) px = 8;
         if (py < 8) py = 8;
         popupEl.style.left = px + 'px';
         popupEl.style.top  = py + 'px';
+    }
 
+    function open(params) {
+        close();
+        currentParams = params;
+        popupEl = build(params);
         document.body.appendChild(popupEl);
+        position(params.x, params.y);
 
-        const ta = popupEl.querySelector('.qa-popup__text');
-        if (existingText) ta.value = existingText;
-        if (readOnly) {
-            ta.readOnly = true;
-            ta.placeholder = '';
+        if (!params.readOnly) {
+            popupEl.querySelector('.qa-popup__text')?.focus();
+        } else if (params.canReply) {
+            popupEl.querySelector('.qa-popup__reply-textarea')?.focus();
         }
-        editingId = editId || null;
+    }
 
-        popupEl.querySelector('.qa-btn--cancel').addEventListener('click', close);
-
-        if (!readOnly) {
-            popupEl.querySelector('.qa-btn--save').addEventListener('click', () => {
-                const text = ta.value.trim();
-                if (!text) { close(); return; }
-                onSave({ selector, x, y, text, editId: editingId });
-                close();
+    // Rebuild only the replies section in-place (e.g., after a new reply
+    // is added or deleted).
+    function refreshReplies({ replies, canReply, canDeleteReply, onReply, onReplyDelete }) {
+        if (!popupEl) return;
+        const existing = popupEl.querySelector('.qa-popup__replies');
+        if (existing) existing.remove();
+        if (replies.length > 0 || canReply) {
+            const section = buildRepliesSection({
+                replies, canReply, canDeleteReply, onReply, onReplyDelete,
             });
-            ta.addEventListener('keydown', (e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    const text = ta.value.trim();
-                    if (text) {
-                        onSave({ selector, x, y, text, editId: editingId });
-                        close();
-                    }
-                }
-            });
+            popupEl.appendChild(section);
         }
-
-        ta.focus();
+        position(currentParams?.x ?? 100, currentParams?.y ?? 100);
     }
 
     function isInside(el) {
         return !!(popupEl && el && popupEl.contains(el));
     }
 
-    return { open, close, isInside };
+    return { open, close, isInside, refreshReplies };
 }

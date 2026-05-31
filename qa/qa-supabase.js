@@ -45,10 +45,12 @@ export async function fetchComments({ page, screen } = {}) {
     return (data || []).map(rowToComment);
 }
 
-export async function insertComment({ selector, x, y, text, page, screen, author }) {
+export async function insertComment({ selector, x, y, text, page, screen, author, parentId }) {
+    const row = { selector, x, y, text, page, screen, author };
+    if (parentId) row.parent_id = parentId;
     const { data, error } = await supabase
         .from('qa_comments')
-        .insert([{ selector, x, y, text, page, screen, author }])
+        .insert([row])
         .select()
         .single();
     if (error) {
@@ -93,8 +95,11 @@ export async function updateCommentRow(id, patch, { password, author } = {}) {
         action:  'update_comment',
         payload: { id, ...patch },
     });
-    if (!result.ok) return null;
-    return result.data?.row ? rowToComment(result.data.row) : null;
+    if (!result.ok) return { ok: false, error: result.error };
+    return {
+        ok:  true,
+        row: result.data?.row ? rowToComment(result.data.row) : null,
+    };
 }
 
 export async function deleteCommentRow(id, { password, author } = {}) {
@@ -104,5 +109,5 @@ export async function deleteCommentRow(id, { password, author } = {}) {
         action:  'delete_comment',
         payload: { id },
     });
-    return result.ok;
+    return { ok: result.ok, error: result.error };
 }
