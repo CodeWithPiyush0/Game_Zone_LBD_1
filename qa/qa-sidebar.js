@@ -128,7 +128,8 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
             li.innerHTML = `
                 <div class="qa-sidebar__row">
                     <span class="qa-sidebar__num">${idx + 1}</span>
-                    <span class="qa-sidebar__status-dot qa-sidebar__status-dot--${status}" title="${STATUS_LABEL[status]}"></span>
+                    <span class="qa-pill qa-pill--${status}">${STATUS_LABEL[status]}</span>
+                    <div class="qa-sidebar__row-spacer"></div>
                     ${editable ? '<button class="qa-sidebar__del" type="button" title="Delete">×</button>' : ''}
                 </div>
                 <div class="qa-sidebar__text"></div>

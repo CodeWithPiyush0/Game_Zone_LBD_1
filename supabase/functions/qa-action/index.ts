@@ -89,16 +89,21 @@ serve(async (req) => {
         return data.author ?? null;
     }
 
+    // Permission helpers for this request.
+    const isOwner = role === 'owner';
+    const isPower = role === 'owner' || role === 'qa';
+
     try {
         switch (action) {
             case 'delete_comment': {
                 if (!payload?.id) return json({ error: 'Missing id' }, 400);
-                // Permission: power role OR (author claimed AND matches the comment's author).
-                if (!role) {
+                // Only Owner can delete arbitrary comments. QA + Other can
+                // only delete their own (verified by matching author).
+                if (!isOwner) {
                     if (!author) return json({ error: 'Not authorised' }, 403);
                     const ownerName = await getCommentAuthor(payload.id);
                     if (ownerName !== author) {
-                        return json({ error: 'Not authorised — can only delete your own comment' }, 403);
+                        return json({ error: "Only Owner can delete others' comments" }, 403);
                     }
                 }
                 const { error } = await supabase
@@ -111,7 +116,6 @@ serve(async (req) => {
             case 'update_comment': {
                 if (!payload?.id) return json({ error: 'Missing id' }, 400);
                 const { id, ...patch } = payload;
-                // Whitelist columns that may be changed via this endpoint.
                 const allowed: Record<string, unknown> = {};
                 if ('text'   in patch) allowed.text   = patch.text;
                 if ('status' in patch) allowed.status = patch.status;
@@ -119,17 +123,16 @@ serve(async (req) => {
                     return json({ error: 'No allowed fields to update' }, 400);
                 }
 
-                // Permission rules:
-                //   • Editing TEXT: power role OR self.
-                //   • Changing STATUS: power role only (status is a triage signal).
-                if (!role) {
-                    if ('status' in allowed) {
-                        return json({ error: 'Only Owner/QA can change status' }, 403);
-                    }
+                // Status changes need OWNER or QA.
+                if ('status' in allowed && !isPower) {
+                    return json({ error: 'Only Owner/QA can change status' }, 403);
+                }
+                // Text edits on others' comments need OWNER.
+                if ('text' in allowed && !isOwner) {
                     if (!author) return json({ error: 'Not authorised' }, 403);
                     const ownerName = await getCommentAuthor(id);
                     if (ownerName !== author) {
-                        return json({ error: 'Not authorised — can only edit your own comment' }, 403);
+                        return json({ error: "Only Owner can edit others' comments" }, 403);
                     }
                 }
 

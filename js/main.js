@@ -28,7 +28,7 @@ class GameApp {
         // so it counts as a user gesture and the browser actually plays it.
         const bgMusic = new Audio('assets/sounds/BG_Music3.mp3');
         bgMusic.loop = true;
-        bgMusic.volume = 0.40;
+        bgMusic.volume = 0.30;
         bgMusic.playbackRate = 0.85;
 
         // Shared mute state. dragDrop.js reads this in its playSound() to

@@ -59,16 +59,18 @@ export const isPowerRole = (role) => role === 'owner' || role === 'qa';
 export { verifyPassword };
 
 // ── Permission helpers ──────────────────────────────────────────────
+// Only OWNER can edit/delete arbitrary comments. QA and Other can only
+// touch their own. Status changes are open to OWNER + QA; everyone can reply.
 export function canEditComment(comment) {
     const role = getRole();
-    if (isPowerRole(role)) return true;
+    if (role === 'owner') return true;
     return comment && comment.author === getAuthor();
 }
 export function canChangeStatus() {
-    return isPowerRole(getRole());
+    return isPowerRole(getRole()); // owner or qa
 }
 export function canReply() {
-    return !!getAuthor(); // anyone with a name can reply
+    return !!getAuthor();
 }
 
 // ── Comment cache + Supabase sync ───────────────────────────────────

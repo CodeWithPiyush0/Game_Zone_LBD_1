@@ -150,15 +150,25 @@ function showRoleModal({ initialName = '', initialRole = '', isSwitch = false } 
                 </label>
                 <label class="qa-name-modal__field">
                     <span class="qa-name-modal__label">Role</span>
-                    <select class="qa-name-modal__input qa-name-modal__input--role">
-                        <option value="other">Other (can comment + edit own)</option>
-                        <option value="qa">QA (full access — needs password)</option>
-                        <option value="owner">Owner (full access — needs password)</option>
-                    </select>
+                    <div class="qa-select-wrap">
+                        <select class="qa-name-modal__input qa-name-modal__input--role qa-select">
+                            <option value="other">Other — comment + edit own</option>
+                            <option value="qa">QA — also change status &amp; reply</option>
+                            <option value="owner">Owner — full access</option>
+                        </select>
+                    </div>
                 </label>
                 <label class="qa-name-modal__field qa-name-modal__field--password" hidden>
                     <span class="qa-name-modal__label">Password</span>
-                    <input class="qa-name-modal__input qa-name-modal__input--password" type="password" placeholder="Owner / QA password" autocomplete="current-password" />
+                    <div class="qa-pw-wrap">
+                        <input class="qa-name-modal__input qa-name-modal__input--password" type="password" placeholder="Enter your role's password" autocomplete="current-password" />
+                        <button class="qa-pw-toggle" type="button" tabindex="-1" aria-label="Show password" data-shown="false">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                                <path class="qa-pw-eye-on"  d="M12 5c-5 0-9.27 3.11-11 7.5 1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 8.11 17 5 12 5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+                                <path class="qa-pw-eye-off" d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.27-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75C21.27 8.11 17 5 12 5c-1.27 0-2.49.2-3.64.57l2.17 2.17C11.13 7.13 11.55 7 12 7zM2 4.27l2.28 2.28C2.94 7.6 1.93 9 1 10.5 2.73 14.89 7 18 12 18c1.55 0 3.03-.3 4.38-.84L19.73 21 21 19.73 3.27 3 2 4.27zM12 16a4 4 0 0 1-4-4c0-.55.1-1.08.27-1.57l5.3 5.3c-.49.17-1.02.27-1.57.27z" style="display:none"/>
+                            </svg>
+                        </button>
+                    </div>
                 </label>
                 <div class="qa-name-modal__error" hidden></div>
                 <div class="qa-name-modal__actions">
@@ -168,11 +178,11 @@ function showRoleModal({ initialName = '', initialRole = '', isSwitch = false } 
             </div>
         `;
         modal.querySelector('.qa-name-modal__title').textContent =
-            isSwitch ? 'Switch Role' : 'Welcome to QA';
+            isSwitch ? 'Switch role' : 'Who’s reviewing?';
         modal.querySelector('.qa-name-modal__sub').textContent =
             isSwitch
-                ? 'Pick a different role. Existing comments keep their original author.'
-                : 'Tell us who you are. "Other" needs no password.';
+                ? 'Change your role here. Past comments keep their original author.'
+                : 'We’ll tag every comment with your name. Owner and QA roles need a password.';
         modal.querySelector('.qa-name-modal__btn--ok').textContent =
             isSwitch ? 'Switch' : 'Continue';
 
@@ -188,6 +198,20 @@ function showRoleModal({ initialName = '', initialRole = '', isSwitch = false } 
 
         nameInput.value = initialName;
         if (initialRole) roleInput.value = initialRole;
+
+        // Password show/hide toggle.
+        const pwToggle = modal.querySelector('.qa-pw-toggle');
+        const eyeOn   = modal.querySelector('.qa-pw-eye-on');
+        const eyeOff  = modal.querySelector('.qa-pw-eye-off');
+        pwToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            const showing = pwInput.type === 'text';
+            pwInput.type = showing ? 'password' : 'text';
+            pwToggle.dataset.shown = showing ? 'false' : 'true';
+            pwToggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+            eyeOn.style.display  = showing ? '' : 'none';
+            eyeOff.style.display = showing ? 'none' : '';
+        });
 
         function refreshPasswordVisibility() {
             const showPw = roleInput.value === 'owner' || roleInput.value === 'qa';
@@ -230,19 +254,22 @@ function showRoleModal({ initialName = '', initialRole = '', isSwitch = false } 
                 okBtn.disabled = false;
                 okBtn.textContent = isSwitch ? 'Switch' : 'Continue';
                 if (!verifiedRole) {
-                    showErr('Password didn’t match. Try again.');
+                    showErr("That password didn't match. Try again.");
                     pwInput.classList.add('qa-name-modal__input--err');
                     pwInput.focus();
                     pwInput.select();
                     return;
                 }
                 if (verifiedRole !== role) {
-                    showErr(`That password is the ${verifiedRole.toUpperCase()} password, not ${role.toUpperCase()}. Continuing as ${verifiedRole.toUpperCase()}.`);
-                    // Fall through with the actual role.
+                    showErr(`That's not the ${role.toUpperCase()} password. Pick the matching role or enter the right password.`);
+                    pwInput.classList.add('qa-name-modal__input--err');
+                    pwInput.focus();
+                    pwInput.select();
+                    return;
                 }
                 setPassword(pwd);
                 modal.remove();
-                resolve({ name, role: verifiedRole });
+                resolve({ name, role });
                 return;
             }
 
@@ -535,6 +562,9 @@ async function init() {
             if (result) {
                 setAuthor(result.name);
                 setRole(result.role);
+                // Permissions may have changed — drop any open popup so the
+                // user can't act on stale UI from the previous role.
+                popup.close();
                 sidebar.setIdentity({ name: result.name, role: result.role });
                 renderPins();
                 sidebar.render(currentScreen);
