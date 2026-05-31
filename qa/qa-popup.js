@@ -24,8 +24,31 @@ function fmtTime(ts) {
 export function createPopupModule() {
     let popupEl = null;
     let currentParams = null;
+    let outsideClickHandler = null;
+
+    function detachOutsideClick() {
+        if (outsideClickHandler) {
+            document.removeEventListener('click', outsideClickHandler);
+            outsideClickHandler = null;
+        }
+    }
+    function attachOutsideClick() {
+        detachOutsideClick();
+        outsideClickHandler = (e) => {
+            if (!popupEl) return;
+            if (popupEl.contains(e.target)) return;
+            // Don't close on clicks landing on other QA UI (sidebar, pins, modals, toast, mute btn).
+            if (e.target.closest?.('.qa-pin, .qa-sidebar, .qa-name-modal, .qa-toast, .mute-btn, .qa-pins')) return;
+            close();
+        };
+        // Defer so the click that opened the popup doesn't immediately close it.
+        setTimeout(() => {
+            if (popupEl) document.addEventListener('click', outsideClickHandler);
+        }, 30);
+    }
 
     function close() {
+        detachOutsideClick();
         if (popupEl?.parentElement) popupEl.parentElement.removeChild(popupEl);
         popupEl = null;
         currentParams = null;
@@ -40,6 +63,7 @@ export function createPopupModule() {
             canDelete = false,
             status = 'open',
             canChangeStatus = false,
+            wontfixReason = '',
             byline = '',
             replies = [],
             canReply = false,
@@ -77,6 +101,15 @@ export function createPopupModule() {
             b.className = 'qa-popup__byline';
             b.textContent = byline;
             el.appendChild(b);
+        }
+
+        // ── Won't Fix reason (only if status is wontfix and reason set) ──
+        if (!isNew && status === 'wontfix' && wontfixReason) {
+            const box = document.createElement('div');
+            box.className = 'qa-popup__wontfix';
+            box.innerHTML = '<span class="qa-popup__wontfix-label">Reason</span><span class="qa-popup__wontfix-text"></span>';
+            box.querySelector('.qa-popup__wontfix-text').textContent = wontfixReason;
+            el.appendChild(box);
         }
 
         // ── Comment textarea ──────────────────────────────────────
@@ -252,6 +285,7 @@ export function createPopupModule() {
         popupEl = build(params);
         document.body.appendChild(popupEl);
         position(params.x, params.y);
+        attachOutsideClick();
 
         if (!params.readOnly) {
             popupEl.querySelector('.qa-popup__text')?.focus();
@@ -279,5 +313,42 @@ export function createPopupModule() {
         return !!(popupEl && el && popupEl.contains(el));
     }
 
-    return { open, close, isInside, refreshReplies };
+    // Sync the status pill/select AND the Won't Fix reason block in place,
+    // so the popup reflects the new state without a full rebuild.
+    function refreshStatus(newStatus, newWontfixReason = '') {
+        if (!popupEl) return;
+
+        const pill = popupEl.querySelector('.qa-status-pill, .qa-status-select');
+        if (pill) {
+            if (pill.tagName === 'SELECT') {
+                pill.value = newStatus;
+                pill.className = `qa-status-select qa-status-pill--${newStatus}`;
+            } else {
+                pill.className = `qa-status-pill qa-status-pill--${newStatus}`;
+                pill.textContent = STATUS_LABELS[newStatus] || newStatus;
+            }
+        }
+
+        const existing = popupEl.querySelector('.qa-popup__wontfix');
+        if (newStatus === 'wontfix' && newWontfixReason) {
+            if (existing) {
+                existing.querySelector('.qa-popup__wontfix-text').textContent = newWontfixReason;
+            } else {
+                const box = document.createElement('div');
+                box.className = 'qa-popup__wontfix';
+                box.innerHTML = '<span class="qa-popup__wontfix-label">Reason</span><span class="qa-popup__wontfix-text"></span>';
+                box.querySelector('.qa-popup__wontfix-text').textContent = newWontfixReason;
+                // Insert right after the byline (if any), otherwise before the textarea.
+                const byline = popupEl.querySelector('.qa-popup__byline');
+                const text   = popupEl.querySelector('.qa-popup__text');
+                if (byline && byline.parentNode) byline.parentNode.insertBefore(box, byline.nextSibling);
+                else if (text)                  text.parentNode.insertBefore(box, text);
+                else                            popupEl.appendChild(box);
+            }
+        } else if (existing) {
+            existing.remove();
+        }
+    }
+
+    return { open, close, isInside, refreshReplies, refreshStatus };
 }

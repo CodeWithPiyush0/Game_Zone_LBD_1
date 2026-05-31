@@ -15,17 +15,18 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 // shape (camelCase + ms epoch) used by the rest of the QA module.
 function rowToComment(row) {
     return {
-        id:        row.id,
-        selector:  row.selector,
-        x:         row.x,
-        y:         row.y,
-        text:      row.text,
-        page:      row.page,
-        screen:    row.screen,
-        author:    row.author,
-        parentId:  row.parent_id,
-        status:    row.status,
-        createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+        id:             row.id,
+        selector:       row.selector,
+        x:              row.x,
+        y:              row.y,
+        text:           row.text,
+        page:           row.page,
+        screen:         row.screen,
+        author:         row.author,
+        parentId:       row.parent_id,
+        status:         row.status,
+        wontfixReason:  row.wontfix_reason || null,
+        createdAt:      row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     };
 }
 

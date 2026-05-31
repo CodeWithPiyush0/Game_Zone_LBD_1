@@ -16,7 +16,7 @@ const STATUS_LABEL = {
 };
 const STATUS_OPTIONS = ['all', 'open', 'in_progress', 'resolved', 'wontfix'];
 
-export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, onSwitchRole }) {
+export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, onSwitchRole, onShowHelp }) {
     let sidebarEl = null;
     let collapsed = false;
     let inspectOn = false;
@@ -30,6 +30,7 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
             <div class="qa-sidebar__header">
                 <span class="qa-sidebar__title">QA <span class="qa-sidebar__screen">—</span></span>
                 <div class="qa-sidebar__actions">
+                    <button class="qa-sidebar__help"    type="button" title="What is this?" aria-label="What is this?">?</button>
                     <button class="qa-sidebar__inspect" type="button" aria-pressed="false" title="Toggle comment mode">+ Comment</button>
                     <button class="qa-sidebar__toggle"  type="button" aria-label="Collapse">−</button>
                 </div>
@@ -73,6 +74,9 @@ export function createSidebarModule({ onItemClick, onDelete, onInspectToggle, on
 
         sidebarEl.querySelector('.qa-sidebar__rename').addEventListener('click', () => {
             if (typeof onSwitchRole === 'function') onSwitchRole();
+        });
+        sidebarEl.querySelector('.qa-sidebar__help').addEventListener('click', () => {
+            if (typeof onShowHelp === 'function') onShowHelp();
         });
 
         sidebarEl.querySelector('.qa-sidebar__filter-select').addEventListener('change', (e) => {

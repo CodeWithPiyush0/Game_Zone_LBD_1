@@ -117,8 +117,9 @@ serve(async (req) => {
                 if (!payload?.id) return json({ error: 'Missing id' }, 400);
                 const { id, ...patch } = payload;
                 const allowed: Record<string, unknown> = {};
-                if ('text'   in patch) allowed.text   = patch.text;
-                if ('status' in patch) allowed.status = patch.status;
+                if ('text'           in patch) allowed.text           = patch.text;
+                if ('status'         in patch) allowed.status         = patch.status;
+                if ('wontfix_reason' in patch) allowed.wontfix_reason = patch.wontfix_reason;
                 if (Object.keys(allowed).length === 0) {
                     return json({ error: 'No allowed fields to update' }, 400);
                 }

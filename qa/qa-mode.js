@@ -77,6 +77,79 @@ function injectStylesheet() {
     document.head.appendChild(link);
 }
 
+const WELCOME_KEY = 'qa-welcome-seen-v1';
+function hasSeenWelcome() {
+    try { return localStorage.getItem(WELCOME_KEY) === '1'; } catch { return false; }
+}
+function markWelcomeSeen() {
+    try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
+}
+
+// First-time intro modal explaining what QA mode is and how to use it.
+// Also reachable any time via the "?" button in the sidebar header.
+function showWelcomeModal() {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'qa-name-modal qa-welcome-modal';
+        modal.innerHTML = `
+            <div class="qa-name-modal__card qa-welcome-card" role="dialog" aria-modal="true">
+                <h3 class="qa-name-modal__title">Welcome to QA Mode</h3>
+                <p class="qa-name-modal__sub">
+                    A lightweight in-browser feedback tool, just for QA. Comments are stored
+                    centrally so everyone reviewing the build sees the same notes.
+                </p>
+                <ul class="qa-welcome-list">
+                    <li>
+                        <strong>Drop a pin.</strong>
+                        Hit <em>+ Comment</em> in the sidebar, then click any element on the page.
+                        A popup opens; type your note and save. A numbered pin lands at that spot.
+                    </li>
+                    <li>
+                        <strong>Status pills.</strong>
+                        Each comment carries a status —
+                        <span class="qa-pill qa-pill--open">Open</span>
+                        <span class="qa-pill qa-pill--in_progress">In Progress</span>
+                        <span class="qa-pill qa-pill--resolved">Resolved</span>
+                        <span class="qa-pill qa-pill--wontfix">Won't Fix</span>.
+                        Pin colours match.
+                    </li>
+                    <li>
+                        <strong>Three roles.</strong>
+                        <em>Owner</em> has full access. <em>QA</em> can triage status &amp; reply.
+                        <em>Other</em> can comment and manage their own. Roles are gated by password.
+                    </li>
+                    <li>
+                        <strong>Replies &amp; discussion.</strong>
+                        Open any pin to view its thread and add replies.
+                    </li>
+                    <li>
+                        <strong>Stay focused.</strong>
+                        Turn <em>+ Comment</em> off any time to keep playing the game normally —
+                        existing pins stay visible.
+                    </li>
+                </ul>
+                <div class="qa-name-modal__actions">
+                    <button class="qa-name-modal__btn qa-name-modal__btn--ok" type="button">Got it</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const okBtn = modal.querySelector('.qa-name-modal__btn--ok');
+        const finish = () => { markWelcomeSeen(); modal.remove(); resolve(); };
+        okBtn.addEventListener('click', finish);
+        const onKey = (e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+                e.stopPropagation();
+                document.removeEventListener('keydown', onKey, true);
+                finish();
+            }
+        };
+        document.addEventListener('keydown', onKey, true);
+        setTimeout(() => okBtn.focus(), 50);
+    });
+}
+
 // Lightweight transient toast — used for action failures + diagnostics.
 let toastTimer = null;
 function showToast(message, type = 'info', duration = 3500) {
@@ -91,6 +164,61 @@ function showToast(message, type = 'info', duration = 3500) {
         t.classList.remove('qa-toast--show');
         setTimeout(() => t.remove(), 220);
     }, duration);
+}
+
+// Prompt for a free-text reason. Resolves with the trimmed string or null on cancel.
+function promptReason({ title, message, label, placeholder = '', confirmLabel = 'Save', destructive = false }) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'qa-name-modal qa-confirm-modal';
+        modal.innerHTML = `
+            <div class="qa-name-modal__card" role="dialog" aria-modal="true">
+                <h3 class="qa-name-modal__title"></h3>
+                <p class="qa-name-modal__sub"></p>
+                <label class="qa-name-modal__field">
+                    <span class="qa-name-modal__label"></span>
+                    <textarea class="qa-name-modal__input qa-name-modal__textarea" rows="3" maxlength="500"></textarea>
+                </label>
+                <div class="qa-name-modal__actions">
+                    <button class="qa-name-modal__btn qa-name-modal__btn--cancel" type="button">Cancel</button>
+                    <button class="qa-name-modal__btn ${destructive ? 'qa-name-modal__btn--danger' : 'qa-name-modal__btn--ok'}" type="button"></button>
+                </div>
+            </div>
+        `;
+        modal.querySelector('.qa-name-modal__title').textContent = title;
+        modal.querySelector('.qa-name-modal__sub').textContent   = message;
+        modal.querySelector('.qa-name-modal__label').textContent = label;
+        const ta = modal.querySelector('.qa-name-modal__textarea');
+        ta.placeholder = placeholder;
+        const okBtn = modal.querySelector(destructive ? '.qa-name-modal__btn--danger' : '.qa-name-modal__btn--ok');
+        okBtn.textContent = confirmLabel;
+        const cancelBtn = modal.querySelector('.qa-name-modal__btn--cancel');
+
+        document.body.appendChild(modal);
+
+        const finish = (v) => {
+            document.removeEventListener('keydown', onKey, true);
+            modal.remove();
+            resolve(v);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); finish(null); }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                const v = ta.value.trim();
+                if (v) finish(v);
+            }
+        };
+        document.addEventListener('keydown', onKey, true);
+
+        okBtn.addEventListener('click', () => {
+            const v = ta.value.trim();
+            if (!v) { ta.classList.add('qa-name-modal__input--err'); ta.focus(); return; }
+            finish(v);
+        });
+        cancelBtn.addEventListener('click', () => finish(null));
+        ta.addEventListener('input', () => ta.classList.remove('qa-name-modal__input--err'));
+        setTimeout(() => ta.focus(), 50);
+    });
 }
 
 // Confirm modal — resolves true on confirm, false on cancel/Escape.
@@ -420,6 +548,8 @@ async function init() {
             },
         };
 
+        const currentStatus = c.status || 'open';
+
         popup.open({
             x: c.x, y: c.y,
             selector: c.selector,
@@ -427,8 +557,9 @@ async function init() {
             text: c.text,
             readOnly: !editable,
             canDelete: editable,
-            status: c.status || 'open',
+            status: currentStatus,
             canChangeStatus: statusOK,
+            wontfixReason: c.wontfixReason || '',
             byline: `${c.author || 'Unknown'} · ${new Date(c.createdAt).toLocaleString()}`,
             replies: getReplies(c.id),
             ...replyHandlers,
@@ -460,11 +591,38 @@ async function init() {
                 sidebar.render(currentScreen);
             },
             onStatusChange: async (newStatus) => {
-                const result = await updateComment(c.id, { status: newStatus });
+                const patch = { status: newStatus };
+
+                if (newStatus === 'wontfix') {
+                    const reason = await promptReason({
+                        title: "Why won't this be fixed?",
+                        message: 'A brief reason helps everyone reading later understand the call.',
+                        label: 'Reason',
+                        placeholder: 'e.g. Working as intended, out of scope, browser limitation…',
+                        confirmLabel: "Mark as Won't Fix",
+                        destructive: true,
+                    });
+                    if (!reason) {
+                        // User cancelled — revert dropdown to whatever it was before.
+                        popup.refreshStatus(c.status || 'open');
+                        return;
+                    }
+                    patch.wontfix_reason = reason;
+                } else if ((c.status || 'open') === 'wontfix') {
+                    // Moving OFF wontfix clears any stale reason.
+                    patch.wontfix_reason = null;
+                }
+
+                const result = await updateComment(c.id, patch);
                 if (!result.ok) {
                     showToast(result.error || 'Status change failed', 'error');
+                    popup.refreshStatus(c.status || 'open', c.wontfixReason || '');
                     return;
                 }
+                // Keep our local reference in sync so re-open shows the new state.
+                c.status        = newStatus;
+                c.wontfixReason = patch.wontfix_reason ?? null;
+                popup.refreshStatus(newStatus, c.wontfixReason || '');
                 renderPins();
                 sidebar.render(currentScreen);
             },
@@ -553,6 +711,7 @@ async function init() {
             popup.close();
         },
         onInspectToggle: setInterceptEnabled,
+        onShowHelp: () => { showWelcomeModal(); },
         onSwitchRole: async () => {
             const result = await showRoleModal({
                 initialName: getAuthor(),
@@ -580,26 +739,32 @@ async function init() {
     sidebar.render(currentScreen);
     sidebar.setIdentity({ name: getAuthor() || '—', role: getRole() || '' });
 
-    // First-time tester OR power role with no saved password (e.g. password
-    // was rotated, or localStorage was cleared) → re-collect identity.
+    // First-visit welcome + identity collection. Welcome shows once per
+    // browser (re-openable via the sidebar's "?" button); the role modal
+    // shows whenever identity is missing or the saved password was cleared.
     const needsAuth =
         !getAuthor() ||
         !getRole() ||
         (isPowerRole(getRole()) && !hasSavedPassword());
-    if (needsAuth) {
-        showRoleModal({
-            initialName: getAuthor(),
-            initialRole: getRole(),
-            isSwitch: !!getAuthor(),
-        }).then((result) => {
+
+    (async () => {
+        if (!hasSeenWelcome()) {
+            await showWelcomeModal();
+        }
+        if (needsAuth) {
+            const result = await showRoleModal({
+                initialName: getAuthor(),
+                initialRole: getRole(),
+                isSwitch: !!getAuthor(),
+            });
             if (!result) return;
             setAuthor(result.name);
             setRole(result.role);
             sidebar.setIdentity({ name: result.name, role: result.role });
             renderPins();
             sidebar.render(currentScreen);
-        });
-    }
+        }
+    })();
 
     // Background sync — pick up comments posted by other reviewers without
     // requiring a page reload. 10s is plenty for a QA workflow; cheap because
