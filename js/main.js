@@ -26,10 +26,10 @@ class GameApp {
 
         // Looping background music — kicked off inside the Play click handler
         // so it counts as a user gesture and the browser actually plays it.
-        const bgMusic = new Audio('assets/sounds/BG_Music3.mp3');
+        const bgMusic = new Audio('assets/sounds/BG_Music4.mp3');
         bgMusic.loop = true;
-        bgMusic.volume = 0.30;
-        bgMusic.playbackRate = 0.85;
+        bgMusic.volume = 0.40;
+        bgMusic.playbackRate = 1.0;
 
         // Shared mute state. dragDrop.js reads this in its playSound() to
         // gate the SFX; bgMusic.muted is synced directly.
