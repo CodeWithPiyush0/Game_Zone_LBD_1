@@ -7,6 +7,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL  = 'https://ttxdyyrsyctnqoymytgb.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_KoUbyZ1vZnpuvucWRYJVHQ_A1wG4vmY';
 
+// Per-game identifier — every comment carries this so multiple games can
+// share a single Supabase project without seeing each other's pins.
+// CHANGE THIS to a unique slug when copying the QA module into a new game.
+export const APP_NAME = 'coin-quest';
+
 export const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/qa-action`;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -23,6 +28,7 @@ function rowToComment(row) {
         page:           row.page,
         screen:         row.screen,
         author:         row.author,
+        appName:        row.app_name,
         parentId:       row.parent_id,
         status:         row.status,
         wontfixReason:  row.wontfix_reason || null,
@@ -31,10 +37,13 @@ function rowToComment(row) {
 }
 
 // ── Reads + inserts (direct, RLS-controlled) ────────────────────────
+// All queries scoped to APP_NAME so games sharing this Supabase project
+// don't see each other's pins.
 export async function fetchComments({ page, screen } = {}) {
     let q = supabase
         .from('qa_comments')
         .select('*')
+        .eq('app_name', APP_NAME)
         .order('created_at', { ascending: true });
     if (page)   q = q.eq('page', page);
     if (screen) q = q.eq('screen', screen);
@@ -47,7 +56,7 @@ export async function fetchComments({ page, screen } = {}) {
 }
 
 export async function insertComment({ selector, x, y, text, page, screen, author, parentId }) {
-    const row = { selector, x, y, text, page, screen, author };
+    const row = { selector, x, y, text, page, screen, author, app_name: APP_NAME };
     if (parentId) row.parent_id = parentId;
     const { data, error } = await supabase
         .from('qa_comments')
