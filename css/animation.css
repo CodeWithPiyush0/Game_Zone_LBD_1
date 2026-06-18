@@ -21,11 +21,8 @@
 }
 
 .ticket-burst-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    position: fixed;
+    inset: 0;
     pointer-events: none;
     z-index: 100;
     overflow: hidden;
@@ -83,8 +80,9 @@
         animation-timing-function: cubic-bezier(0.5, 0, 1, 1); /* Accelerating ease-in down */
     }
     100% {
-        /* Fall below screen */
-        transform: translate3d(var(--tx), 15vh, -50px) scale(var(--scale)) rotateZ(var(--rot)) rotateX(720deg) rotateY(360deg);
+        /* Fall below the cabinet — end-y is set per particle in JS based on
+           the cabinet's measured height. Falls back to 15vh if unset. */
+        transform: translate3d(var(--tx), var(--end-y, 15vh), -50px) scale(var(--scale)) rotateZ(var(--rot)) rotateX(720deg) rotateY(360deg);
         opacity: 0;
     }
 }
