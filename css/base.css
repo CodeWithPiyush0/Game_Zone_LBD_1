@@ -17,6 +17,16 @@ body, html {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Tab-hidden pause — main.js toggles .game-paused on <body> via the
+   visibilitychange event. Freezes every CSS animation in place so the
+   cinematic intro, target-amount breathing, ghost hints, ticket burst,
+   etc. don't tick on while the user isn't watching. */
+body.game-paused *,
+body.game-paused *::before,
+body.game-paused *::after {
+    animation-play-state: paused !important;
+}
+
 /* Mute toggle — fixed top-right, reachable across every screen and the
    cinematic intro (whose overlay sits at z-index 9999). */
 .mute-btn {

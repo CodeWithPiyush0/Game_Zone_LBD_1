@@ -53,6 +53,23 @@ class GameApp {
             dragDrop.initDragDrop();
         };
 
+        // Pause everything when the tab is hidden (switched away or browser
+        // minimised). Resumes when it comes back. Music pauses in-place;
+        // CSS animations across the whole page freeze via .game-paused.
+        let bgWasPlayingBeforeHide = false;
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                bgWasPlayingBeforeHide = !bgMusic.paused;
+                if (bgWasPlayingBeforeHide) bgMusic.pause();
+                document.body.classList.add('game-paused');
+            } else {
+                document.body.classList.remove('game-paused');
+                if (bgWasPlayingBeforeHide) {
+                    bgMusic.play().catch(() => {});
+                }
+            }
+        });
+
         const playBtn = document.getElementById('play-btn');
         const screen0 = document.getElementById('screen-0');
 
