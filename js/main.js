@@ -24,6 +24,13 @@ class GameApp {
     init() {
         console.log("Arcade Game Initialized - Phase 1");
 
+        // Preload the "Play again" SVG so when all four levels are completed
+        // and the play button swaps from "Let's Play" → "Play again", the new
+        // image is already in cache. The src swap then resolves synchronously
+        // and the button can't flicker through the old text on the way in.
+        const playAgainPreload = new Image();
+        playAgainPreload.src = 'assets/images/Play_again_BTN.svg';
+
         // Looping background music — kicked off inside the Play click handler
         // so it counts as a user gesture and the browser actually plays it.
         const bgMusic = new Audio('assets/sounds/BG_Music4.mp3');

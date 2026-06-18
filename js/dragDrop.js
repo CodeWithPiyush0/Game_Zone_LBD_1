@@ -633,9 +633,12 @@ export function initDragDrop() {
                             overlay.classList.add('hidden');
                             uiLayer.classList.remove('level-fade');
 
+                            // Swap the button image FIRST (while screen-0 is still
+                            // hidden), then reveal screen-0. The preload below
+                            // guarantees the swap is instant from cache.
                             if (screen0 && playBtnImg) {
-                                screen0.classList.remove('hidden');
                                 playBtnImg.src = 'assets/images/Play_again_BTN.svg';
+                                screen0.classList.remove('hidden');
                             }
 
                             loadLevel(1);
