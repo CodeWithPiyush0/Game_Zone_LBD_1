@@ -31,6 +31,22 @@ class GameApp {
         const playAgainPreload = new Image();
         playAgainPreload.src = 'assets/images/Play_again_BTN.svg';
 
+        // Mobile portrait → suggest landscape (non-blocking). Dismiss persists
+        // for the session so the user isn't nagged every time they rotate.
+        const rotatePrompt = document.getElementById('rotate-prompt');
+        if (rotatePrompt) {
+            try {
+                if (sessionStorage.getItem('rotate-dismissed') === '1') {
+                    document.body.classList.add('rotate-dismissed');
+                }
+            } catch { /* sessionStorage blocked → just show it again */ }
+            const dismissBtn = rotatePrompt.querySelector('.rotate-prompt__dismiss');
+            dismissBtn?.addEventListener('click', () => {
+                document.body.classList.add('rotate-dismissed');
+                try { sessionStorage.setItem('rotate-dismissed', '1'); } catch {}
+            });
+        }
+
         // Looping background music — kicked off inside the Play click handler
         // so it counts as a user gesture and the browser actually plays it.
         const bgMusic = new Audio('assets/sounds/BG_Music4.mp3');
