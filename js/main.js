@@ -31,6 +31,18 @@ class GameApp {
         bgMusic.volume = 0.40;
         bgMusic.playbackRate = 1.0;
 
+        // The BG file has ~2–3s of trailing silence that makes the native
+        // loop feel delayed. Manually rewind a bit early so playback wraps
+        // back to the start without the dead air. Tweak TRIM_TAIL_SECONDS
+        // if the track has more or less silence than expected.
+        const TRIM_TAIL_SECONDS = 2.5;
+        bgMusic.addEventListener('timeupdate', () => {
+            if (bgMusic.duration &&
+                bgMusic.currentTime >= bgMusic.duration - TRIM_TAIL_SECONDS) {
+                bgMusic.currentTime = 0;
+            }
+        });
+
         // Shared mute state. dragDrop.js reads this in its playSound() to
         // gate the SFX; bgMusic.muted is synced directly.
         window.gameMuted = false;
