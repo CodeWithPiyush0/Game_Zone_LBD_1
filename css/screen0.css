@@ -55,6 +55,10 @@
     width: 100%;
     height: auto;
     filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
 }
 
 .screen-0-decorations {
