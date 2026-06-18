@@ -33,7 +33,7 @@ export function initDragDrop() {
     let requiredItemValue = '2';
     let requiredItemType = 'coin'; // 'coin' or 'note' — drives error message wording
     let requiredCount = 6;
-    let questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
+    let questionHTML = '<p>Use <span class="highlight">₹2 coins</span> to make <span class="highlight">₹12</span>.</p>';
     // True between a successful Check and the next level loading — blocks drag/drop
     // so the celebration + cinematic intro can't be interrupted.
     let levelLocked = false;
@@ -47,30 +47,32 @@ export function initDragDrop() {
             targetAmount = 12;
             requiredItemValue = '2';
             requiredCount = 6;
-            questionHTML = '<p>Use <span class="highlight">₹2</span> to make <span class="highlight">₹12</span>.</p>';
             document.querySelector('.target-amount').textContent = '₹12';
         } else if (level === 2) {
             targetAmount = 25;
             requiredItemValue = '5';
             requiredCount = 5;
-            questionHTML = '<p>Use <span class="highlight">₹5</span> to make <span class="highlight">₹25</span>.</p>';
             document.querySelector('.target-amount').textContent = '₹25';
         } else if (level === 3) {
             targetAmount = 50;
             requiredItemValue = '10';
             requiredCount = 5;
-            questionHTML = '<p>Use <span class="highlight">₹10</span> to make <span class="highlight">₹50</span>.</p>';
             document.querySelector('.target-amount').textContent = '₹50';
         } else if (level === 4) {
             targetAmount = 100;
             requiredItemValue = '50';
             requiredCount = 2;
-            questionHTML = '<p>Use <span class="highlight">₹50</span> to make <span class="highlight">₹100</span>.</p>';
             document.querySelector('.target-amount').textContent = '₹100';
         }
-        
+
         // Level 4 uses the ₹50 note; every other level uses coins.
         requiredItemType = (level === 4) ? 'note' : 'coin';
+
+        // Build the question dynamically with proper pluralization. If a future
+        // level ever requires exactly one item, we'll correctly say "coin" / "note"
+        // instead of "coins" / "notes".
+        const itemLabel = requiredCount === 1 ? requiredItemType : `${requiredItemType}s`;
+        questionHTML = `<p>Use <span class="highlight">₹${requiredItemValue} ${itemLabel}</span> to make <span class="highlight">₹${targetAmount}</span>.</p>`;
 
         // Dynamically swap the second note
         if (level === 4) {
