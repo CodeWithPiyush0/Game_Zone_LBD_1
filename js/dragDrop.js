@@ -73,6 +73,7 @@ export function initDragDrop() {
         const itemLabel = requiredCount === 1 ? requiredItemType : `${requiredItemType}s`;
         questionHTML = `<p>Use <span class="highlight">₹${requiredItemValue} ${itemLabel}</span> to make <span class="highlight">₹${targetAmount}</span>.</p>`;
 
+
         // Dynamically swap the second note
         if (level === 4) {
             dynamicNote.setAttribute('data-value', '50');
@@ -85,7 +86,28 @@ export function initDragDrop() {
         }
         
         questionContent.innerHTML = questionHTML;
+
+        // Lock every tray item except the one this level requires. The dynamic
+        // note has already been re-tagged above, so its data-value is current.
+        applyLockState();
+
         resetGame(true); // soft reset
+    }
+
+    // Swap each tray item between its X_Rupee_Default.png and X_Rupee_Lock.png
+    // sibling based on whether its data-value matches the current
+    // requiredItemValue. Locked items also get a .locked class so the drag
+    // handlers can refuse them and CSS can show cursor: not-allowed.
+    function applyLockState() {
+        document.querySelectorAll('.money-item').forEach(item => {
+            const img = item.querySelector('img');
+            if (!img) return;
+            const isRequired = item.getAttribute('data-value') === requiredItemValue;
+            item.classList.toggle('locked', !isRequired);
+            img.draggable = isRequired;
+            // Replace whichever variant is currently shown (_Default / _Lock / _Glow).
+            img.src = img.src.replace(/_(Default|Lock|Glow)\.png/, isRequired ? '_Default.png' : '_Lock.png');
+        });
     }
     
     // --- Ghost Coin Hint Logic ---
@@ -336,8 +358,15 @@ export function initDragDrop() {
             e.preventDefault();
             return;
         }
-        onUserDragAttempt();
         const item = e.currentTarget;
+        // Locked tray items (denominations not used by this level) can't be dragged.
+        // Dropped-coins in the dropzone never get the .locked class, so they can
+        // still be returned to the tray.
+        if (item.classList.contains('locked')) {
+            e.preventDefault();
+            return;
+        }
+        onUserDragAttempt();
         draggedItemValue = item.getAttribute('data-value');
         draggedItemType = item.classList.contains('note') ? 'note' : 'coin';
         
@@ -383,8 +412,12 @@ export function initDragDrop() {
             e.preventDefault();
             return;
         }
-        if (e.targetTouches.length !== 1) return;
         const item = e.currentTarget;
+        if (item.classList.contains('locked')) {
+            e.preventDefault();
+            return;
+        }
+        if (e.targetTouches.length !== 1) return;
         
         const touch = e.targetTouches[0];
         const rect = item.getBoundingClientRect();
@@ -699,7 +732,9 @@ export function initDragDrop() {
     }
     
     // The cinematic level-intro module already played the Level 1 banner.
-    // Just kick off the tutorial schedule and idle clock.
+    // Lock all the non-required denominations from the start, kick off the
+    // tutorial schedule and idle clock.
+    applyLockState();
     if (currentLevel === 1) startLevel1Tutorial();
     resetIdleTimer();
 }

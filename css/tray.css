@@ -62,6 +62,22 @@
     transform: translateY(-5%);
 }
 
+/* Locked tray items — the denomination isn't usable this level. Image is
+   swapped to the _Lock variant in JS; here we just kill the affordances. */
+.money-item.locked {
+    cursor: not-allowed;
+}
+.money-item.locked:hover {
+    transform: none;
+}
+.money-item.locked:active {
+    cursor: not-allowed;
+    transform: none;
+}
+.money-item.locked img {
+    cursor: not-allowed;
+}
+
 .money-item.coin {
     /* Base height overridden by specific data-value selectors to match real coin scaling */
 }
