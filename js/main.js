@@ -66,20 +66,6 @@ class GameApp {
             }
         });
 
-        // Shared mute state. dragDrop.js reads this in its playSound() to
-        // gate the SFX; bgMusic.muted is synced directly.
-        window.gameMuted = false;
-
-        const muteBtn = document.getElementById('mute-btn');
-        if (muteBtn) {
-            muteBtn.addEventListener('click', () => {
-                window.gameMuted = !window.gameMuted;
-                bgMusic.muted = window.gameMuted;
-                muteBtn.classList.toggle('muted', window.gameMuted);
-                muteBtn.setAttribute('aria-pressed', window.gameMuted ? 'true' : 'false');
-            });
-        }
-
         // One-shot, idempotent wrapper the cinematic intro invokes on completion.
         let gameStarted = false;
         window.startGame = () => {
@@ -111,14 +97,11 @@ class GameApp {
         if (playBtn && screen0) {
             playBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (!window.gameMuted) {
-                    const startSound = new Audio('assets/sounds/start.mp3');
-                    startSound.play().catch(err => console.log('Audio play failed:', err));
-                }
+                const startSound = new Audio('assets/sounds/start.mp3');
+                startSound.play().catch(err => console.log('Audio play failed:', err));
 
                 // Start BG music if it hasn't already (calling play() on an
-                // already-playing element is a safe no-op). Its .muted property
-                // is kept in sync by the mute toggle above.
+                // already-playing element is a safe no-op).
                 bgMusic.play().catch(err => console.log('BG music play failed:', err));
 
                 screen0.classList.add('hidden');

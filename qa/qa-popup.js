@@ -38,7 +38,7 @@ export function createPopupModule() {
             if (!popupEl) return;
             if (popupEl.contains(e.target)) return;
             // Don't close on clicks landing on other QA UI (sidebar, pins, modals, toast, mute btn).
-            if (e.target.closest?.('.qa-pin, .qa-sidebar, .qa-name-modal, .qa-toast, .mute-btn, .qa-pins')) return;
+            if (e.target.closest?.('.qa-pin, .qa-sidebar, .qa-name-modal, .qa-toast, .qa-pins')) return;
             close();
         };
         // Defer so the click that opened the popup doesn't immediately close it.

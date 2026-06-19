@@ -21,7 +21,6 @@ export function initDragDrop() {
     };
 
     function playSound(name) {
-        if (window.gameMuted) return;
         if (sounds[name]) {
             sounds[name].currentTime = 0;
             sounds[name].play().catch(e => console.log('Audio error:', e));
