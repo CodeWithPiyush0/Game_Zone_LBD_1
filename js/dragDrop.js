@@ -702,7 +702,7 @@ export function initDragDrop() {
             // Success!
             levelLocked = true;
             playSound('success');
-            questionContent.innerHTML = '<p>Yay! You have won the <span class="highlight">tickets!</span></p>';
+            questionContent.innerHTML = '<p>Yay! You have won the tickets!</p>';
 
             // Apply success CSS glow instead of changing src
             dropzoneBg.classList.remove('is-glow', 'error-glow');
