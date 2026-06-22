@@ -100,10 +100,12 @@
 .dropzone-area.layout-3 {
     flex-direction: row;
     flex-wrap: wrap;
-    align-content: center;
-    justify-content: center;
-    row-gap: 5%; /* Space between rows when wrapped */
-    padding: 2% 10%; /* Keep items away from edges */
+    align-content: center;      /* The whole row group is centered vertically. */
+    justify-content: center;    /* Each row is horizontally centered. */
+    row-gap: 5%;                /* Vertical space between rows when wrapping. */
+    padding: 2% 10%;            /* Edge inset so items don't touch the sides. */
+    /* align-items inherited as `center` from .dropzone-area base — keeps a
+       single row centered vertically, and items within each row centered. */
 }
 
 /* Reset margins for layout-3 items */

@@ -32,6 +32,23 @@ export function initDragDrop() {
     let requiredItemValue = '2';
     let requiredItemType = 'coin'; // 'coin' or 'note' — drives error message wording
     let requiredCount = 6;
+    // Per-denomination + per-type caps in the dropzone. Each unlocked tray
+    // item respects its own cap independently — e.g. on Level 3 (₹10), both
+    // the ₹10 coin and ₹10 note unlock (they share data-value), and each
+    // caps at 5 items.
+    const MAX_PER_COIN = 10;
+    const MAX_PER_NOTE = 5;
+    // Per-(type, value) overrides. ₹10 coin matches the ₹10 note's cap so
+    // Level 3 stays balanced — 5 of either or any mix totalling 5.
+    const CAP_OVERRIDES = {
+        coin: { '10': 5 },
+        note: {},
+    };
+    const capFor = (type, value) => {
+        const override = CAP_OVERRIDES[type]?.[value];
+        if (override !== undefined) return override;
+        return type === 'note' ? MAX_PER_NOTE : MAX_PER_COIN;
+    };
     let questionHTML = '<p>Use <span class="highlight">₹2 coins</span> to make <span class="highlight">₹12</span>.</p>';
     // True between a successful Check and the next level loading — blocks drag/drop
     // so the celebration + cinematic intro can't be interrupted.
@@ -98,15 +115,39 @@ export function initDragDrop() {
     // sibling based on whether its data-value matches the current
     // requiredItemValue. Locked items also get a .locked class so the drag
     // handlers can refuse them and CSS can show cursor: not-allowed.
+    // Also clears any stale .disabled state from a previous level.
     function applyLockState() {
         document.querySelectorAll('.money-item').forEach(item => {
             const img = item.querySelector('img');
             if (!img) return;
             const isRequired = item.getAttribute('data-value') === requiredItemValue;
             item.classList.toggle('locked', !isRequired);
+            item.classList.remove('disabled');
             img.draggable = isRequired;
             // Replace whichever variant is currently shown (_Default / _Lock / _Glow).
             img.src = img.src.replace(/_(Default|Lock|Glow)\.png/, isRequired ? '_Default.png' : '_Lock.png');
+        });
+    }
+
+    // Count how many dropped coins of an exact denomination + type are in
+    // the dropzone right now.
+    function countDroppedFor(value, type) {
+        return dropzoneArea.querySelectorAll(
+            `.dropped-coin.${type}[data-value="${value}"]`
+        ).length;
+    }
+
+    // For every unlocked tray item, count its dropped siblings and toggle
+    // .disabled when it hits its own cap. Independent across types, so
+    // hitting the ₹10 coin cap doesn't disable the ₹10 note (or vice versa).
+    function updateLimitState() {
+        document.querySelectorAll('.money-item:not(.locked)').forEach(item => {
+            const value = item.getAttribute('data-value');
+            const type  = item.classList.contains('note') ? 'note' : 'coin';
+            const atMax = countDroppedFor(value, type) >= capFor(type, value);
+            item.classList.toggle('disabled', atMax);
+            const img = item.querySelector('img');
+            if (img) img.draggable = !atMax;
         });
     }
     
@@ -144,6 +185,10 @@ export function initDragDrop() {
         // hint shows the kid exactly which coin/note to drag.
         const sourceCoin = document.querySelector(`.money-item[data-value="${requiredItemValue}"]:not(.dropped-coin)`);
         if (!sourceCoin) return;
+        // If the cap is already hit, don't suggest dragging more in — the
+        // user needs to remove coins instead. The "too many" return hint
+        // (playGhostReturnAnimation) handles that flow separately.
+        if (sourceCoin.classList.contains('disabled')) return;
 
         ghostHintActive = true;
         const ghost = document.createElement('img');
@@ -359,10 +404,11 @@ export function initDragDrop() {
             return;
         }
         const item = e.currentTarget;
-        // Locked tray items (denominations not used by this level) can't be dragged.
-        // Dropped-coins in the dropzone never get the .locked class, so they can
-        // still be returned to the tray.
-        if (item.classList.contains('locked')) {
+        // Locked tray items (wrong denomination for this level) and disabled
+        // ones (per-denomination cap reached) both refuse drag.
+        // Dropped-coins in the dropzone never carry either class, so they
+        // can still be returned to the tray.
+        if (item.classList.contains('locked') || item.classList.contains('disabled')) {
             e.preventDefault();
             return;
         }
@@ -413,7 +459,7 @@ export function initDragDrop() {
             return;
         }
         const item = e.currentTarget;
-        if (item.classList.contains('locked')) {
+        if (item.classList.contains('locked') || item.classList.contains('disabled')) {
             e.preventDefault();
             return;
         }
@@ -531,15 +577,22 @@ export function initDragDrop() {
         }
 
         if (draggedItemValue === requiredItemValue) {
+            // Refuse the drop if this exact denomination+type is already at
+            // its cap. The tray item will have .disabled by this point, but a
+            // tiny race (queued dragend) could still reach here — bail safely.
+            if (countDroppedFor(draggedItemValue, draggedItemType) >= capFor(draggedItemType, draggedItemValue)) {
+                return;
+            }
+
             // Success dropping required item
-            
+
             // Play the material drop sound
             if (draggedItemType === 'note') {
                 playSound('note');
             } else {
                 playSound('drop');
             }
-            
+
             droppedCoinsCount++;
             questionContent.innerHTML = questionHTML; // Reset any previous error text
             updateDropzoneBackground();
@@ -563,9 +616,24 @@ export function initDragDrop() {
             // If the src contains _Glow from the tray, use _Default for the dropped version
             coinImg.src = draggedItemSrc ? draggedItemSrc.replace('_Glow', '_Default') : '';
             newCoin.appendChild(coinImg);
-            
-            dropzoneArea.appendChild(newCoin);
+
+            // Stack with existing same-denomination + same-type siblings,
+            // regardless of drop order. Example: drop coin, coin, note, coin
+            // → DOM ends up [coin, coin, coin, note], not [coin, coin, note, coin].
+            // This also keeps the deck-of-cards overlap rules (.coin + .coin,
+            // .note + .note) intact, since matching neighbours stay adjacent.
+            const existingSameType = dropzoneArea.querySelectorAll(
+                `.dropped-coin.${draggedItemType}[data-value="${draggedItemValue}"]`
+            );
+            const lastSameType = existingSameType[existingSameType.length - 1];
+            if (lastSameType) {
+                lastSameType.insertAdjacentElement('afterend', newCoin);
+            } else {
+                dropzoneArea.appendChild(newCoin);
+            }
             updateDropzoneLayout(droppedCoinsCount);
+            // Recount after the new element is in the DOM.
+            updateLimitState();
         } else {
             // Incorrect
             playSound('error');
@@ -595,6 +663,8 @@ export function initDragDrop() {
             draggedItemOrigin.remove();
             droppedCoinsCount--;
             updateDropzoneLayout(droppedCoinsCount);
+            // Recount after the dropped element is gone from the DOM.
+            updateLimitState();
             draggedItemOrigin = null;
             updateDropzoneBackground();
         }
@@ -602,7 +672,7 @@ export function initDragDrop() {
     
     function updateDropzoneLayout(count) {
         dropzoneArea.className = 'dropzone-area'; // reset
-        
+
         if (count === 1) {
             dropzoneArea.classList.add('layout-1');
         } else if (count === 2) {

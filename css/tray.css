@@ -78,6 +78,26 @@
     cursor: not-allowed;
 }
 
+/* Disabled tray items — the per-denomination cap has been hit (10 coins
+   or 5 notes already in the dropzone). The image stays the _Default
+   variant, but the whole item dims so the cap feels evident. */
+.money-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(40%);
+    transition: opacity 150ms ease, filter 150ms ease;
+}
+.money-item.disabled:hover {
+    transform: none;
+}
+.money-item.disabled:active {
+    cursor: not-allowed;
+    transform: none;
+}
+.money-item.disabled img {
+    cursor: not-allowed;
+}
+
 .money-item.coin {
     /* Base height overridden by specific data-value selectors to match real coin scaling */
 }
